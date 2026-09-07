@@ -48,7 +48,7 @@ FIPS OpenSSL、opencv libcrypto、flashinfer 双包版本、vLLM custom all-redu
 1. `git clone https://github.com/kzhao5/gap_measurement.git ~/gap_measurement`,AReaL 用 `git clone -b kt-patches https://github.com/kzhao5/AReaL-kt.git ~/AReaL`;`rl/*.sbatch`、`rl/env.sh`、`rl/*.py`、`src/common.py` 已改为 `$HOME`/`%u`/`expanduser`,无需改;
    `analysis/*.py`(离线分析脚本)仍含绝对路径,一条命令处理:`grep -rl /home/kzhao2 analysis scripts | xargs sed -i "s|/home/kzhao2|$HOME|g"`。
 2. 建目录:`mkdir -p ~/nobackup/autodelete/{areal_rl/{logs,experiments,name_resolve,ktdump},hf,uv_cache,gap_measurement}`(BYU 的 `~/nobackup` 是到 `/nobackup/autodelete/usr/<user>` 的标准链接)。
-3. AReaL:按 §3 clone + checkout + `git apply areal_patches/areal_local.patch`;`uv venv --python 3.11 .venv && uv pip install -e . -r ~/gap_measurement/env/requirements-areal.txt && uv pip uninstall opencv-python-headless`。
+3. 先 `uv python install 3.11`(提供 Triton JIT 编译所需的 Python.h;env.sh 会自动找到 `~/.local/share/uv/python/cpython-3.11*/include`);然后 AReaL:按 §3 clone + checkout + `git apply areal_patches/areal_local.patch`;`uv venv --python 3.11 .venv && uv pip install -e . -r ~/gap_measurement/env/requirements-areal.txt && uv pip uninstall opencv-python-headless`。
    gap venv:`cd ~/gap_measurement && uv venv --python 3.12 .venv && uv pip install -r env/requirements-gap.txt`。
 4. 缓存(登录节点有外网,计算节点没有;缓存根目录 = env.sh 的 `HF_HUB_CACHE=~/nobackup/autodelete/hf`):
    `HF_HUB_CACHE=~/nobackup/autodelete/hf hf download Qwen/Qwen1.5-MoE-A2.7B-Chat`(同样:deepseek-ai/DeepSeek-V2-Lite-Chat、Qwen/Qwen3-30B-A3B);
