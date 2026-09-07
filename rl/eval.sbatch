@@ -11,7 +11,7 @@
 #SBATCH --array=0-5
 
 source $HOME/gap_measurement/rl/env.sh
-CK=$HOME/nobackup/autodelete/areal_rl/experiments/checkpoints/kzhao2/kt-recipe
+CK=$HOME/nobackup/autodelete/areal_rl/experiments/checkpoints/$USER/kt-recipe
 TAGS=(base fullis tis icepop kpop sigmatis)
 PATHS=(
   "Qwen/Qwen1.5-MoE-A2.7B-Chat"

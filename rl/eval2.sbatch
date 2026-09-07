@@ -11,7 +11,7 @@
 #SBATCH --array=0-3
 
 source $HOME/gap_measurement/rl/env.sh
-CK=$HOME/nobackup/autodelete/areal_rl/experiments/checkpoints/kzhao2/kt-lgrid
+CK=$HOME/nobackup/autodelete/areal_rl/experiments/checkpoints/$USER/kt-lgrid
 TAGS=(sigmatis_v2_inf23 sigmatis_v2_inf16 sigmatis_v2_inf31 sigmatis_v2_1023)
 A=$SLURM_ARRAY_TASK_ID
 P="$CK/lg${A}-e3/default/epoch2epochstep28globalstep86"

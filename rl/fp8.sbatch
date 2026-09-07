@@ -49,6 +49,6 @@ python examples/math/gsm8k_rl.py \
     total_train_epochs=3 \
     $OVR
 
-CK=$RLROOT/experiments/checkpoints/kzhao2/kt-fp8/${METHOD}${TAG}-fp8/default
+CK=$RLROOT/experiments/checkpoints/$USER/kt-fp8/${METHOD}${TAG}-fp8/default
 E=$(ls "$CK" 2>/dev/null | tail -1)
 [ -n "$E" ] && sbatch --export=ALL,EVAL_PATH="$CK/$E",EVAL_TAG="fp8_${METHOD}${TAG}" $HOME/gap_measurement/rl/eval_tp.sbatch

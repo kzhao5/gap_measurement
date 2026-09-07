@@ -48,6 +48,6 @@ python examples/math/gsm8k_rl.py \
     total_train_epochs=3 \
     $OVR
 
-CK=$RLROOT/experiments/checkpoints/kzhao2/kt-eps/eps${EPS0}-s${SEED}/default
+CK=$RLROOT/experiments/checkpoints/$USER/kt-eps/eps${EPS0}-s${SEED}/default
 E=$(ls "$CK" 2>/dev/null | tail -1)
 [ -n "$E" ] && sbatch --export=ALL,EVAL_PATH="$CK/$E",EVAL_TAG="eps_${EPS0}_s${SEED}" $HOME/gap_measurement/rl/eval_tp.sbatch

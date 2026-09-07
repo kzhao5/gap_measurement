@@ -67,6 +67,6 @@ python examples/math/gsm8k_rl.py \
     total_train_epochs=3 \
     $MOVR $OVR $EXTRA
 
-CK=$RLROOT/experiments/checkpoints/kzhao2/kt-${CELL}/${METHOD}${TAG}-s${SEED}/default
+CK=$RLROOT/experiments/checkpoints/$USER/kt-${CELL}/${METHOD}${TAG}-s${SEED}/default
 E=$(ls "$CK" 2>/dev/null | grep "^epoch" | tail -1)
 [ -n "$E" ] && sbatch --export=ALL,EVAL_PATH="$CK/$E",EVAL_TAG="suite_${CELL}_${METHOD}${TAG}_s${SEED}" $HOME/gap_measurement/rl/eval_suite.sbatch

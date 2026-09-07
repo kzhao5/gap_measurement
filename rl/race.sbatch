@@ -60,6 +60,6 @@ python examples/math/gsm8k_rl.py \
     total_train_epochs=3
 
 # winner submits its own TP4 eval the moment training ends
-CK=$RLROOT/experiments/checkpoints/kzhao2/kt-v3race/$KT_ARM-e3/default
+CK=$RLROOT/experiments/checkpoints/$USER/kt-v3race/$KT_ARM-e3/default
 E=$(ls "$CK" 2>/dev/null | tail -1)
 [ -n "$E" ] && sbatch --export=ALL,EVAL_PATH="$CK/$E",EVAL_TAG="v3_$KT_ARM" $HOME/gap_measurement/rl/eval_tp.sbatch

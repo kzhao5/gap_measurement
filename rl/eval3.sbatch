@@ -12,4 +12,4 @@
 source $HOME/gap_measurement/rl/env.sh
 cd $HOME/gap_measurement
 source .venv/bin/activate
-OPENSSL_CONF=/dev/null python rl/eval_gsm8k.py "$HOME/nobackup/autodelete/areal_rl/experiments/checkpoints/kzhao2/kt-recipe/nocorr-moe-e3/default/epoch2epochstep28globalstep86" nocorr
+OPENSSL_CONF=/dev/null python rl/eval_gsm8k.py "$HOME/nobackup/autodelete/areal_rl/experiments/checkpoints/$USER/kt-recipe/nocorr-moe-e3/default/epoch2epochstep28globalstep86" nocorr
