@@ -408,3 +408,5 @@ Qwen1.5/DSV2 无 thinking 模式,不受影响(cell A 无恙)。
 - ✅ 2026-09-07:dsv2 canary(13591048)首奖励 0.794、seq_len 259 —— tokenizer 修复生效(SGLang 时代 0.37)。取消该 1-epoch 冒烟(trial 名与正式 nocorr s1 冲突),提交 dsv2 正式批量 33 job(TAG=vllm,LAMP=15.0)。
 - 2026-09-07 清单核对(sacct SubmitLine):q30b 完成 4(fullis s1/kpop s2/kpopfix s2/nocorr s1,均 no-thinking 有效)、在队 19、补提缺失 10(tis/icepop/kpop/kpopfix/seqtis/seqmis/gspo/fp16/ours 的 s1 + nocorr s2);dsv2 33 全在队;清除 2 条污染评测行(fp16vllm_s1、nocorrvllm_s2 评的是 weight_update 快照)。
 - 调度修正(09-07):cs QOS 上限 24h → 11 个 q30b s3 job 由 30h 改 24h(A100 实测 ~9 min/step,13h 足够);cs 再入维护 → 11 个 dsv2 s3 迁 m13h/gpu。队列 61 kt-cells(3 running)。
+- 2026-09-07 Overleaf 992331c:Table 1 填 DeepSeek base 行(70.66/25.40/67.67/6.25/6.08)与 Qwen3-30B base+3 个单种子行(nocorr s1/exact s1/KPop† s2),caption 注明 in-progress 与 GSM8K 饱和。清单:dsv2 33 pending、q30b 4 done/3 run/26 pending,无缺口。
+- ⑬ m13h 上 dsv2 vLLM worker 死于 Triton/inductor JIT 编译(gcc cuda_utils.c 失败,缺 Python.h):我在改 account-agnostic 时注释掉了 env.sh 的 C_INCLUDE_PATH,现改为从 venv 解释器动态取 include 目录。13602494 因此失败;13602497(同节点,已起跑)预计同死,后续 job 自动继承。

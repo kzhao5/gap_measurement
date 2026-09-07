@@ -6,7 +6,10 @@ module load cuda/12.8.1 2>/dev/null || true
 export CUDA_HOME="${CUDA_HOME:-$(dirname "$(dirname "$(which nvcc 2>/dev/null)")")}"
 # Triton JIT compiles a CPython extension at runtime; neither login nor
 # compute nodes ship python3.11-devel. Use uv-managed CPython's headers.
-# (optional) C_INCLUDE_PATH for building extensions against the uv-managed python; not needed for running
+# Triton/inductor JIT compiles a CPython extension at runtime (vLLM on H200 hits this);
+# compute nodes have no python3-devel, so point gcc at the venv interpreter's own headers.
+_PYINC=$($HOME/AReaL/.venv/bin/python -c "import sysconfig;print(sysconfig.get_paths()['include'])" 2>/dev/null)
+[ -n "$_PYINC" ] && export C_INCLUDE_PATH=$_PYINC${C_INCLUDE_PATH:+:$C_INCLUDE_PATH}
 export HF_HOME=$HOME/nobackup/autodelete/hf
 export HF_HUB_CACHE=$HOME/nobackup/autodelete/hf
 export HF_HUB_OFFLINE=1                       # compute nodes have no internet
