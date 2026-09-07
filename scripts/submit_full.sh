@@ -2,7 +2,7 @@
 # Submit the full experiment: generation (16x 1-GPU array tasks), then
 # recompute (32) + controls (32) gated on generation completing OK.
 set -e
-cd /home/kzhao2/gap_measurement
+cd $HOME/gap_measurement
 
 GEN=$(sbatch --parsable slurm/gen.sbatch)
 echo "gen array:      $GEN (0-15: moe shards 0-7, dense shards 0-7)"

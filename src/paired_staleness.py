@@ -33,7 +33,7 @@ import pyarrow.parquet as pq
 sys.path.insert(0, os.path.dirname(__file__))
 from common import DATA_ROOT
 
-CKROOT = ("/home/kzhao2/nobackup/autodelete/areal_rl/experiments/"
+CKROOT = (os.path.expanduser("~/nobackup/autodelete/areal_rl/experiments/")
           "checkpoints/kzhao2/kt-lgrid/lg0-e3/default")
 CKPTS = {
     "v28": f"{CKROOT}/epoch0epochstep28globalstep28",

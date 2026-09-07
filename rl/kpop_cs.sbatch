@@ -8,10 +8,10 @@
 #SBATCH --mem=900G
 #SBATCH --time=08:00:00
 #SBATCH 
-#SBATCH --output=/home/kzhao2/nobackup/autodelete/areal_rl/logs/rec3_%a_%j.out
+#SBATCH --output=/home/%u/nobackup/autodelete/areal_rl/logs/rec3_%a_%j.out
 #SBATCH --array=2
 
-source /home/kzhao2/gap_measurement/rl/env.sh
+source $HOME/gap_measurement/rl/env.sh
 cd "$AREAL"
 source .venv/bin/activate
 python -c "import torch, transformers, datasets, sglang; \

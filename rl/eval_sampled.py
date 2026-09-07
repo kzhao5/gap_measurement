@@ -26,7 +26,7 @@ def main():
     acc = tot / (len(golds)*8)
     mt=os.environ.get("MAXTOK","1536"); line = f"RESULT {tag} gsm8k_avg8_t1_mt{mt} acc={acc:.4f}"
     print(line, flush=True)
-    with open("/home/kzhao2/gap_measurement/results/eval_suite.tsv","a") as f:
+    with open(os.path.expanduser("~/gap_measurement/results/eval_suite.tsv"),"a") as f:
         f.write(f"{tag}\tgsm8k_avg8t1_mt{mt}\t{acc:.4f}\t{len(golds)*8}\n")
     os._exit(0)
 

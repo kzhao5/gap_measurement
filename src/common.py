@@ -14,9 +14,9 @@ import torch
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
-HF_CACHE = "/home/kzhao2/nobackup/autodelete/hf"
-DATA_ROOT = "/home/kzhao2/nobackup/autodelete/gap_measurement"
-CODE_ROOT = "/home/kzhao2/gap_measurement"
+HF_CACHE = os.path.expanduser("~/nobackup/autodelete/hf")
+DATA_ROOT = os.path.expanduser("~/nobackup/autodelete/gap_measurement")
+CODE_ROOT = os.path.expanduser("~/gap_measurement")
 PROMPTS_JSONL = os.path.join(CODE_ROOT, "data", "prompts_math.jsonl")
 
 # ---------------------------------------------------------------------------

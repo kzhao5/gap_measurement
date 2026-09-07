@@ -7,7 +7,7 @@
 #SBATCH --mem=160G
 #SBATCH --time=03:00:00
 #SBATCH --exclude=dw-2-4
-#SBATCH --output=/home/kzhao2/nobackup/autodelete/areal_rl/logs/sgeval_%j.out
-source /home/kzhao2/gap_measurement/rl/env.sh
-cd /home/kzhao2/AReaL && source .venv/bin/activate
-OPENSSL_CONF=/dev/null python /home/kzhao2/gap_measurement/rl/eval_sampled_sglang.py "$EVAL_PATH" "$EVAL_TAG"
+#SBATCH --output=/home/%u/nobackup/autodelete/areal_rl/logs/sgeval_%j.out
+source $HOME/gap_measurement/rl/env.sh
+cd $HOME/AReaL && source .venv/bin/activate
+OPENSSL_CONF=/dev/null python $HOME/gap_measurement/rl/eval_sampled_sglang.py "$EVAL_PATH" "$EVAL_TAG"

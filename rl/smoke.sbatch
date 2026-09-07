@@ -8,9 +8,9 @@
 #SBATCH --mem=1500G
 #SBATCH --time=04:00:00
 #SBATCH --exclude=dw-2-4
-#SBATCH --output=/home/kzhao2/nobackup/autodelete/areal_rl/logs/smoke_%j.out
+#SBATCH --output=/home/%u/nobackup/autodelete/areal_rl/logs/smoke_%j.out
 
-source /home/kzhao2/gap_measurement/rl/env.sh
+source $HOME/gap_measurement/rl/env.sh
 cd "$AREAL"
 
 # Activate the venv properly: AReaL spawns subprocesses (sglang server,

@@ -6,10 +6,10 @@
 #SBATCH --mem=700G
 #SBATCH --time=08:00:00
 #SBATCH --exclude=dw-2-4
-#SBATCH --output=/home/kzhao2/nobackup/autodelete/areal_rl/logs/fp8_%j.out
+#SBATCH --output=/home/%u/nobackup/autodelete/areal_rl/logs/fp8_%j.out
 
 # Multi-seed significance: METHOD x SEED via --export, exact e3-recipe flags.
-source /home/kzhao2/gap_measurement/rl/env.sh
+source $HOME/gap_measurement/rl/env.sh
 cd "$AREAL"
 source .venv/bin/activate
 python -c "import torch, transformers, datasets, sglang; import areal.trainer.rl_trainer" || true
@@ -51,4 +51,4 @@ python examples/math/gsm8k_rl.py \
 
 CK=$RLROOT/experiments/checkpoints/kzhao2/kt-fp8/${METHOD}${TAG}-fp8/default
 E=$(ls "$CK" 2>/dev/null | tail -1)
-[ -n "$E" ] && sbatch --export=ALL,EVAL_PATH="$CK/$E",EVAL_TAG="fp8_${METHOD}${TAG}" /home/kzhao2/gap_measurement/rl/eval_tp.sbatch
+[ -n "$E" ] && sbatch --export=ALL,EVAL_PATH="$CK/$E",EVAL_TAG="fp8_${METHOD}${TAG}" $HOME/gap_measurement/rl/eval_tp.sbatch

@@ -8,10 +8,10 @@
 #SBATCH --mem=1500G
 #SBATCH --time=08:00:00
 #SBATCH --exclude=dw-2-4
-#SBATCH --output=/home/kzhao2/nobackup/autodelete/areal_rl/logs/v3_%a_%j.out
+#SBATCH --output=/home/%u/nobackup/autodelete/areal_rl/logs/v3_%a_%j.out
 #SBATCH --array=0-1
 
-source /home/kzhao2/gap_measurement/rl/env.sh
+source $HOME/gap_measurement/rl/env.sh
 cd "$AREAL"
 source .venv/bin/activate
 python -c "import torch, transformers, datasets, sglang; \

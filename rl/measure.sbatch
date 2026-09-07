@@ -7,10 +7,10 @@
 #SBATCH --mem=360G
 #SBATCH --time=08:00:00
 #SBATCH --exclude=dw-2-4
-#SBATCH --output=/home/kzhao2/nobackup/autodelete/areal_rl/logs/measure_%j.out
+#SBATCH --output=/home/%u/nobackup/autodelete/areal_rl/logs/measure_%j.out
 # Static (k_t,p_t) measurement for a new arch: gen 8 shards (4-way parallel) + bf16 rescore.
-source /home/kzhao2/gap_measurement/rl/env.sh
-cd /home/kzhao2/gap_measurement
+source $HOME/gap_measurement/rl/env.sh
+cd $HOME/gap_measurement
 source .venv/bin/activate
 set -x
 for round in 0 1; do

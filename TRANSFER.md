@@ -40,3 +40,18 @@ uv pip uninstall opencv-python-headless
 
 ## 6. 已知坑(见 SIGMA_TIS.md 末尾 12 层修复记录)
 FIPS OpenSSL、opencv libcrypto、flashinfer 双包版本、vLLM custom all-reduce、awex 依赖 megatron、xccl 权重同步挂死(用 disk)、DeepSeek tokenizer(transformers 5.3)、Qwen3 thinking 默认开启(4 处调用点)。
+
+## 7. 同集群换账号(BYU 另一账号)——最短路径
+同一集群意味着 CUDA/驱动/FIPS/分区完全相同,venv 用 `env/` 的锁定版本重建即可精确复现;只有**路径与账号权限**两类差异。
+1. `git clone` 本仓库到新账号 `~/gap_measurement`;`rl/*.sbatch`、`rl/env.sh`、`rl/*.py`、`src/common.py` 已改为 `$HOME`/`%u`/`expanduser`,无需改;
+   `analysis/*.py`(离线分析脚本)仍含绝对路径,一条命令处理:`grep -rl /home/kzhao2 analysis scripts | xargs sed -i "s|/home/kzhao2|$HOME|g"`。
+2. 建目录:`mkdir -p ~/nobackup/autodelete/{areal_rl/{logs,experiments,name_resolve,ktdump},hf,uv_cache,gap_measurement}`(BYU 的 `~/nobackup` 是到 `/nobackup/autodelete/usr/<user>` 的标准链接)。
+3. AReaL:按 §3 clone + checkout + `git apply areal_patches/areal_local.patch`;`uv venv --python 3.11 .venv && uv pip install -e . -r ~/gap_measurement/env/requirements-areal.txt && uv pip uninstall opencv-python-headless`。
+   gap venv:`cd ~/gap_measurement && uv venv --python 3.12 .venv && uv pip install -r env/requirements-gap.txt`。
+4. 缓存(登录节点有外网,计算节点没有;缓存根目录 = env.sh 的 `HF_HUB_CACHE=~/nobackup/autodelete/hf`):
+   `HF_HUB_CACHE=~/nobackup/autodelete/hf hf download Qwen/Qwen1.5-MoE-A2.7B-Chat`(同样:deepseek-ai/DeepSeek-V2-Lite-Chat、Qwen/Qwen3-30B-A3B);
+   数据集:openai/gsm8k、HuggingFaceH4/MATH-500、ChilleD/SVAMP、math-ai/minervamath、OlympiadBench 文本子集(用 gap venv 的 `datasets.load_dataset` 触发缓存)。
+   **DeepSeek 必做**:删掉缓存里 `config.json` 的 `auto_map` 键(其 remote code 与 transformers 5.3 不兼容;删后走原生 deepseek_v2 实现):
+   `python -c "import json,glob;p=glob.glob('$HOME/nobackup/autodelete/hf/models--deepseek-ai--DeepSeek-V2-Lite-Chat/snapshots/*/config.json')[0];c=json.load(open(p));c.pop('auto_map',None);json.dump(c,open(p,'w'),indent=2)"`。
+5. 权限检查:`sacctmgr show assoc user=<新账号> format=Account,QOS%40`——需要 `cs`(cs/cs2 分区)、`dw87`(dw)、`gpu`(m13h);缺哪个就把对应 sbatch 的 `--partition/--qos` 换成可用的。
+6. 我们账号下的 checkpoint/结果不可读(home 700);若需要历史 checkpoint 或 430MB 的原始测量 parquet,走 login 节点 /tmp 中转(见 SIGMA_TIS.md)或让 ORC 建 file-sharing group。

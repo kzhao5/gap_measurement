@@ -26,7 +26,7 @@ def main():
             tot+=judge(oo["text"],g); cnt+=1
     acc=tot/max(cnt,1)
     print(f"RESULT {tag} sglang_avg8_t1 acc={acc:.4f} n={cnt}",flush=True)
-    with open("/home/kzhao2/gap_measurement/results/eval_suite.tsv","a") as f:
+    with open(os.path.expanduser("~/gap_measurement/results/eval_suite.tsv"),"a") as f:
         f.write(f"{tag}\tsglang_avg8t1\t{acc:.4f}\t{cnt}\n")
     os._exit(0)
 

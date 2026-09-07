@@ -89,7 +89,7 @@ def main():
             lines.append(f"RESULT {tag} gsm8k_em acc={em:.4f} n={len(golds)}")
         print(lines[-1], flush=True)
     print("\n".join(lines), flush=True)
-    with open("/home/kzhao2/gap_measurement/results/eval_suite.tsv", "a") as f:
+    with open(os.path.expanduser("~/gap_measurement/results/eval_suite.tsv"), "a") as f:
         for ln in lines:
             _, t, b, a, n = ln.split()
             f.write(f"{t}\t{b}\t{a.split('=')[1]}\t{n.split('=')[1]}\n")

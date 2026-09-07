@@ -8,9 +8,9 @@
 #SBATCH --mem=1500G
 #SBATCH --time=02:00:00
 #SBATCH --exclude=dw-2-4
-#SBATCH --output=/home/kzhao2/nobackup/autodelete/areal_rl/logs/smoke_%j.out
+#SBATCH --output=/home/%u/nobackup/autodelete/areal_rl/logs/smoke_%j.out
 
-source /home/kzhao2/gap_measurement/rl/env.sh
+source $HOME/gap_measurement/rl/env.sh
 cd "$AREAL"
 
 # Activate the venv properly: AReaL spawns subprocesses (sglang server,
@@ -26,7 +26,7 @@ import areal.trainer.rl_trainer" || true
 
 # Single-arm smoke: official IcePop config, our measured MoE model,
 # 1 epoch cap -- goal is "trains some steps, logs written", not convergence.
-export KT_DUMP_DIR=/home/kzhao2/nobackup/autodelete/areal_rl/ktdump/qwen25probe KT_DUMP_EVERY=5
+export KT_DUMP_DIR=$HOME/nobackup/autodelete/areal_rl/ktdump/qwen25probe KT_DUMP_EVERY=5
 python examples/math/gsm8k_rl.py \
     --config examples/math/gsm8k_icepop.yaml \
     experiment_name=kt-probe \

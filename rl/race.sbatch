@@ -6,9 +6,9 @@
 #SBATCH --mem=700G
 #SBATCH --time=08:00:00
 #SBATCH --exclude=dw-2-4
-#SBATCH --output=/home/kzhao2/nobackup/autodelete/areal_rl/logs/race_%j.out
+#SBATCH --output=/home/%u/nobackup/autodelete/areal_rl/logs/race_%j.out
 
-source /home/kzhao2/gap_measurement/rl/env.sh
+source $HOME/gap_measurement/rl/env.sh
 LOCKBASE=$RLROOT/locks
 mkdir -p "$LOCKBASE"
 LOCK=$LOCKBASE/$KT_ARM
@@ -62,4 +62,4 @@ python examples/math/gsm8k_rl.py \
 # winner submits its own TP4 eval the moment training ends
 CK=$RLROOT/experiments/checkpoints/kzhao2/kt-v3race/$KT_ARM-e3/default
 E=$(ls "$CK" 2>/dev/null | tail -1)
-[ -n "$E" ] && sbatch --export=ALL,EVAL_PATH="$CK/$E",EVAL_TAG="v3_$KT_ARM" /home/kzhao2/gap_measurement/rl/eval_tp.sbatch
+[ -n "$E" ] && sbatch --export=ALL,EVAL_PATH="$CK/$E",EVAL_TAG="v3_$KT_ARM" $HOME/gap_measurement/rl/eval_tp.sbatch

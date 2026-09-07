@@ -23,7 +23,7 @@ def main():
     tot=sum(judge(o.text,g) for out,g in zip(outs,golds) for o in out.outputs)
     acc=tot/(len(golds)*4)
     print(f"RESULT {tag} parity acc={acc:.4f}",flush=True)
-    with open("/home/kzhao2/gap_measurement/results/eval_suite.tsv","a") as f:
+    with open(os.path.expanduser("~/gap_measurement/results/eval_suite.tsv"),"a") as f:
         f.write(f"{tag}\tvllm_parity_train_avg4\t{acc:.4f}\t{len(golds)*4}\n")
     os._exit(0)
 
