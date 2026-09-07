@@ -16,10 +16,12 @@
 - 新机器上用 `uv venv --python 3.11 && uv pip install -r env/requirements-areal.txt` 复现;若 CUDA 版本不同需改 torch 的 cu 标签。
 
 ## 3. 部署 AReaL
+最省事:直接 clone 已打好补丁的分支(上游 v2.0.0-32 + 我们的 15 文件改动):
 ```
-git clone https://github.com/areal-project/AReaL && cd AReaL
-git checkout $(cat ../gap_measurement/areal_patches/UPSTREAM_COMMIT)
-git apply ../gap_measurement/areal_patches/areal_local.patch
+git clone -b kt-patches https://github.com/kzhao5/AReaL-kt.git ~/AReaL && cd ~/AReaL
+```
+(等价的手动方式:clone 上游 https://github.com/areal-project/AReaL,checkout `areal_patches/UPSTREAM_COMMIT`,`git apply areal_patches/areal_local.patch`。)
+```
 uv venv --python 3.11 .venv && uv pip install -e . -r ../gap_measurement/env/requirements-areal.txt
 uv pip uninstall opencv-python-headless
 ```
@@ -43,7 +45,7 @@ FIPS OpenSSL、opencv libcrypto、flashinfer 双包版本、vLLM custom all-redu
 
 ## 7. 同集群换账号(BYU 另一账号)——最短路径
 同一集群意味着 CUDA/驱动/FIPS/分区完全相同,venv 用 `env/` 的锁定版本重建即可精确复现;只有**路径与账号权限**两类差异。
-1. `git clone` 本仓库到新账号 `~/gap_measurement`;`rl/*.sbatch`、`rl/env.sh`、`rl/*.py`、`src/common.py` 已改为 `$HOME`/`%u`/`expanduser`,无需改;
+1. `git clone https://github.com/kzhao5/gap_measurement.git ~/gap_measurement`,AReaL 用 `git clone -b kt-patches https://github.com/kzhao5/AReaL-kt.git ~/AReaL`;`rl/*.sbatch`、`rl/env.sh`、`rl/*.py`、`src/common.py` 已改为 `$HOME`/`%u`/`expanduser`,无需改;
    `analysis/*.py`(离线分析脚本)仍含绝对路径,一条命令处理:`grep -rl /home/kzhao2 analysis scripts | xargs sed -i "s|/home/kzhao2|$HOME|g"`。
 2. 建目录:`mkdir -p ~/nobackup/autodelete/{areal_rl/{logs,experiments,name_resolve,ktdump},hf,uv_cache,gap_measurement}`(BYU 的 `~/nobackup` 是到 `/nobackup/autodelete/usr/<user>` 的标准链接)。
 3. AReaL:按 §3 clone + checkout + `git apply areal_patches/areal_local.patch`;`uv venv --python 3.11 .venv && uv pip install -e . -r ~/gap_measurement/env/requirements-areal.txt && uv pip uninstall opencv-python-headless`。
