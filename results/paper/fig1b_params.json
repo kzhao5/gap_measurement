@@ -1,0 +1,17 @@
+{
+  "c_paired_fresh": 0.5217453135154628,
+  "highconf_out_med": {
+    "paired fresh (lag 0)": 0.05487388751953404,
+    "paired stale (lag 29)": 0.043328844010829926,
+    "champion train early (c=0.61)": 0.0377511484985007,
+    "champion train mid (c=1.28)": 0.09072336742232778,
+    "champion train late (c=1.67)": 0.114590214103373
+  },
+  "highconf_bulk": {
+    "paired fresh (lag 0)": 3.888232786630396e-06,
+    "paired stale (lag 29)": 1.9971124115181737e-05,
+    "champion train early (c=0.61)": 9.367280572223534e-06,
+    "champion train mid (c=1.28)": 1.873376894955072e-05,
+    "champion train late (c=1.67)": 1.0427585235083824e-05
+  }
+}

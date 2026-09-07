@@ -1,0 +1,29 @@
+[recompute] flash_attention_2 unavailable (FlashAttention2 has been toggled on, but it cannot be used due to the following error: the package for FlashAttention2 doesn't seem to be installed.); falling back to sdpa
+Loading weights:   0%|          | 0/387 [00:00<?, ?it/s]Loading weights:   0%|          | 1/387 [00:01<08:57,  1.39s/it]Loading weights:   1%|          | 2/387 [00:03<13:18,  2.07s/it]Loading weights:   5%|▌         | 20/387 [00:05<01:24,  4.33it/s]Loading weights:   6%|▌         | 23/387 [00:06<01:12,  5.05it/s]Loading weights:   9%|▉         | 36/387 [00:08<01:04,  5.42it/s]Loading weights:  10%|█         | 39/387 [00:08<00:56,  6.13it/s]Loading weights:  13%|█▎        | 52/387 [00:10<00:56,  5.98it/s]Loading weights:  14%|█▍        | 55/387 [00:10<00:49,  6.70it/s]Loading weights:  18%|█▊        | 68/387 [00:12<00:47,  6.76it/s]Loading weights:  18%|█▊        | 71/387 [00:12<00:42,  7.43it/s]Loading weights:  22%|██▏       | 84/387 [00:14<00:43,  6.95it/s]Loading weights:  22%|██▏       | 87/387 [00:14<00:39,  7.56it/s]Loading weights:  26%|██▌       | 100/387 [00:17<00:42,  6.76it/s]Loading weights:  27%|██▋       | 103/387 [00:17<00:38,  7.38it/s]Loading weights:  30%|██▉       | 116/387 [00:19<00:39,  6.94it/s]Loading weights:  31%|███       | 119/387 [00:19<00:35,  7.59it/s]Loading weights:  34%|███▍      | 132/387 [00:21<00:36,  6.94it/s]Loading weights:  35%|███▍      | 135/387 [00:21<00:33,  7.56it/s]Loading weights:  38%|███▊      | 148/387 [00:23<00:33,  7.10it/s]Loading weights:  39%|███▉      | 151/387 [00:23<00:30,  7.68it/s]Loading weights:  42%|████▏     | 164/387 [00:26<00:34,  6.48it/s]Loading weights:  43%|████▎     | 167/387 [00:26<00:31,  6.91it/s]Loading weights:  47%|████▋     | 180/387 [00:28<00:32,  6.39it/s]Loading weights:  47%|████▋     | 183/387 [00:28<00:29,  6.84it/s]Loading weights:  51%|█████     | 196/387 [00:30<00:28,  6.65it/s]Loading weights:  51%|█████▏    | 199/387 [00:31<00:25,  7.32it/s]Loading weights:  55%|█████▍    | 212/387 [00:33<00:26,  6.72it/s]Loading weights:  56%|█████▌    | 215/387 [00:33<00:23,  7.38it/s]Loading weights:  59%|█████▉    | 228/387 [00:35<00:23,  6.76it/s]Loading weights:  60%|█████▉    | 231/387 [00:35<00:21,  7.27it/s]Loading weights:  63%|██████▎   | 244/387 [00:37<00:21,  6.59it/s]Loading weights:  64%|██████▍   | 247/387 [00:38<00:19,  7.16it/s]Loading weights:  67%|██████▋   | 260/387 [00:40<00:20,  6.35it/s]Loading weights:  68%|██████▊   | 263/387 [00:40<00:17,  7.05it/s]Loading weights:  71%|███████▏  | 276/387 [00:42<00:16,  6.69it/s]Loading weights:  72%|███████▏  | 279/387 [00:42<00:14,  7.38it/s]Loading weights:  75%|███████▍  | 290/387 [00:42<00:08, 11.68it/s]Loading weights:  76%|███████▌  | 295/387 [00:45<00:14,  6.22it/s]Loading weights:  80%|███████▉  | 308/387 [00:47<00:12,  6.35it/s]Loading weights:  80%|████████  | 311/387 [00:47<00:11,  6.82it/s]Loading weights:  84%|████████▎ | 324/387 [00:49<00:09,  6.59it/s]Loading weights:  84%|████████▍ | 327/387 [00:49<00:08,  7.19it/s]Loading weights:  88%|████████▊ | 340/387 [00:51<00:07,  6.53it/s]Loading weights:  89%|████████▊ | 343/387 [00:51<00:06,  7.09it/s]Loading weights:  92%|█████████▏| 356/387 [00:53<00:04,  7.04it/s]Loading weights:  93%|█████████▎| 359/387 [00:53<00:03,  7.77it/s]Loading weights:  96%|█████████▌| 372/387 [00:55<00:02,  7.22it/s]Loading weights:  97%|█████████▋| 375/387 [00:55<00:01,  7.98it/s]Loading weights: 100%|██████████| 387/387 [00:55<00:00,  6.92it/s]
+[recompute] batch 0/515
+[recompute] batch 20/515
+[recompute] batch 40/515
+[recompute] batch 60/515
+[recompute] batch 80/515
+[recompute] batch 100/515
+[recompute] batch 120/515
+[recompute] batch 140/515
+[recompute] batch 160/515
+[recompute] batch 180/515
+[recompute] batch 200/515
+[recompute] batch 220/515
+[recompute] batch 240/515
+[recompute] batch 260/515
+[recompute] batch 280/515
+[recompute] batch 300/515
+[recompute] batch 320/515
+[recompute] batch 340/515
+[recompute] batch 360/515
+[recompute] batch 380/515
+[recompute] batch 400/515
+[recompute] batch 420/515
+[recompute] batch 440/515
+[recompute] batch 460/515
+[recompute] batch 480/515
+[recompute] batch 500/515
+[recompute] wrote /home/kzhao2/nobackup/autodelete/gap_measurement/recompute/moe/recomp_shard003_fp32.parquet (1572982 rows), meta={'arch': 'moe', 'precision': 'fp32', 'attn_impl': 'sdpa', 'torch': '2.11.0+cu130', 'subsample': '1.0'}

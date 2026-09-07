@@ -1,0 +1,87 @@
+diff --git a/areal/infra/data_service/controller/controller.py b/areal/infra/data_service/controller/controller.py
+index 2159cb5..b8e3c76 100644
+--- a/areal/infra/data_service/controller/controller.py
++++ b/areal/infra/data_service/controller/controller.py
+@@ -70,7 +70,7 @@ class DataController:
+         self._workers_ready = threading.Event()
+         self._shutdown_requested = threading.Event()
+ 
+-    _WORKERS_READY_TIMEOUT: float = 30.0
++    _WORKERS_READY_TIMEOUT: float = 300.0  # PATCH(kzhao2): slow-NFS cluster, forked worker cold-import ~50s
+ 
+     # -- Initialize --------------------------------------------------------
+ 
+diff --git a/areal/infra/scheduler/local.py b/areal/infra/scheduler/local.py
+index 4522dec..2bd3708 100644
+--- a/areal/infra/scheduler/local.py
++++ b/areal/infra/scheduler/local.py
+@@ -101,7 +101,7 @@ class LocalScheduler(Scheduler):
+         self,
+         gpu_devices: list[int] | None = None,
+         log_dir: str | None = None,
+-        startup_timeout: float = 30.0,
++        startup_timeout: float = 300.0,  # PATCH(kzhao2): slow-NFS cluster
+         health_check_interval: float = 1.0,
+         *,
+         experiment_name: str | None = None,
+@@ -285,7 +285,7 @@ class LocalScheduler(Scheduler):
+         session: aiohttp.ClientSession,
+         host: str,
+         port: int,
+-        timeout: float = 60,
++        timeout: float = 300,  # PATCH(kzhao2): NFS cold-import ~80s per forked worker
+     ) -> bool:
+         url = f"http://{format_hostport(host, port)}/health"
+         deadline = time.time() + timeout
+diff --git a/areal/trainer/ppo/actor.py b/areal/trainer/ppo/actor.py
+index 75dbbd7..7be672f 100644
+--- a/areal/trainer/ppo/actor.py
++++ b/areal/trainer/ppo/actor.py
+@@ -1,6 +1,7 @@
+ # SPDX-License-Identifier: Apache-2.0
+ 
+ import functools
++import os
+ from typing import Any
+ 
+ import torch
+@@ -485,6 +486,39 @@ def grpo_loss_fn(
+     if m2_threshold is not None:
+         loss_mask = _apply_m2po_masking(old_logp, prox_logp, loss_mask, m2_threshold)
+ 
++    # PATCH(kzhao2, kt-dump): env-gated per-token (old, prox, cur, version)
++    # dump for log k_t | h_t monitoring. Inert unless KT_DUMP_DIR is set.
++    _kt_dir = os.environ.get("KT_DUMP_DIR")
++    if _kt_dir:
++        global _KT_DUMP_CALLS
++        try:
++            _KT_DUMP_CALLS += 1
++        except NameError:
++            _KT_DUMP_CALLS = 0
++        if _KT_DUMP_CALLS % int(os.environ.get("KT_DUMP_EVERY", "20")) == 0:
++            import time as _time
++
++            import pyarrow as _pa
++            import pyarrow.parquet as _pq
++
++            _m = loss_mask.bool()
++            _cols = {
++                "old_logp": old_logp.detach()[_m].float().cpu().numpy(),
++                "prox_logp": prox_logp.detach()[_m].float().cpu().numpy(),
++                "cur_logp": logprobs.detach()[_m].float().cpu().numpy(),
++            }
++            _v = input_data.get("versions")
++            if _v is not None:
++                _cols["version"] = _v[_m].cpu().numpy()
++            os.makedirs(_kt_dir, exist_ok=True)
++            _pq.write_table(
++                _pa.table(_cols),
++                os.path.join(
++                    _kt_dir,
++                    f"kt_{int(_time.time())}_{os.getpid()}_{_KT_DUMP_CALLS}.parquet",
++                ),
++            )
++
+     # Use CISPO, SAPO, or PPO loss
+     if use_cispo_loss:
+         if use_sapo_loss:

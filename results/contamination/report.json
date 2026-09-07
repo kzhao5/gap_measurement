@@ -1,0 +1,180 @@
+{
+  "A_campaign": {
+    "c": 0.15597624167405108,
+    "weighted_R2": 0.9981995904569888,
+    "max_rel_bin_error": 0.4132644813504614,
+    "affine": {
+      "a": 0.0018706262081129815,
+      "c": 0.15328111276090953
+    },
+    "power": {
+      "logc": -1.8664506090413708,
+      "gamma": 0.9399186763461902
+    },
+    "n_core_bins": 21,
+    "n_floor_bins": 9
+  },
+  "B_campaign": {
+    "core_q10_spread": 0.4261163611247647,
+    "core_q90_spread": 1.303977323723508,
+    "max_ks_core": 0.071245,
+    "note": "floor bins (u<1e-3) = finite-precision regime, excluded"
+  },
+  "paired_n_tokens": 510915,
+  "A_paired_fresh": {
+    "c": 0.5217453135154628,
+    "weighted_R2": 0.9962695807981948,
+    "max_rel_bin_error": 0.2456500775504029,
+    "affine": {
+      "a": -0.006047365025599654,
+      "c": 0.5296330274493889
+    },
+    "power": {
+      "logc": -0.6830041261402383,
+      "gamma": 1.0352499715095826
+    },
+    "n_core_bins": 5,
+    "n_floor_bins": 10
+  },
+  "B_paired_fresh": {
+    "core_q10_spread": 0.4044973809270871,
+    "core_q90_spread": 0.49532752584420225,
+    "max_ks_core": 0.049522135418109126,
+    "note": "floor bins (u<1e-3) = finite-precision regime, excluded"
+  },
+  "prefill_vs_decode_ctrl": {
+    "median": 0.0,
+    "mad": 1.2371704325232712e-06
+  },
+  "C_lag29": {
+    "a": 0.05764611092820476,
+    "b1_u": -2.9574700524873796,
+    "b2_logk0": -0.5978429424971986,
+    "b1_effect": 0.6910695763911722,
+    "b2_effect": 0.11838719109099965,
+    "median_B_range": [
+      -0.6671439912170172,
+      0.002712270710617304
+    ],
+    "median_B_global": 0.0,
+    "standardized_blowup_ratio": 0.0
+  },
+  "D_lag29": {
+    "rho_plus": 0.48879950676727046,
+    "p_gt": [
+      0.08327999765127271,
+      0.052934441149702006,
+      0.04011821927326463
+    ],
+    "p_lt": [
+      0.10783594139925427,
+      0.08938668858812131
+    ]
+  },
+  "E_lag29": {
+    "q90": 0.004281575832283156,
+    "q95": 0.058895822521299115,
+    "q99": 0.6750806908681981,
+    "q999": 2.147128018526366,
+    "max": 6.006141513586044,
+    "q99_half": 0.6658147363364698
+  },
+  "C_lag58": {
+    "a": 0.1172279219899834,
+    "b1_u": -2.449138125187369,
+    "b2_logk0": -0.5732991759625056,
+    "b1_effect": 0.48482755952874307,
+    "b2_effect": 0.09617706699003899,
+    "median_B_range": [
+      -0.48774584010243416,
+      0.011434728279709816
+    ],
+    "median_B_global": 2.3841855067985307e-07,
+    "standardized_blowup_ratio": 0.0
+  },
+  "D_lag58": {
+    "rho_plus": 0.5612009825509136,
+    "p_gt": [
+      0.12257420510261002,
+      0.08990145131773387,
+      0.07622598671011813
+    ],
+    "p_lt": [
+      0.09642112680191421,
+      0.07975103490795925
+    ]
+  },
+  "E_lag58": {
+    "q90": 0.030162186361849308,
+    "q95": 0.378657347522676,
+    "q99": 2.925887872641905,
+    "q999": 7.78604897785187,
+    "max": 30.64950029179454,
+    "q99_half": 2.941011386737228
+  },
+  "ktdump": {
+    "dump": "recipe_sigmatis",
+    "n_tokens": 612456,
+    "n_files": 224
+  },
+  "F_epsilon": {
+    "lag_ge1": 0.004797079300390559,
+    "lag_ge2": 0.004271327246365453,
+    "B_gt": {
+      "0.01": 0.08327999765127271,
+      "0.05": 0.052934441149702006,
+      "0.10": 0.04011821927326463
+    },
+    "clustering": "not measurable: dumps carry no traj/pos structure"
+  },
+  "H_at_2.3": {
+    "arch": "moe",
+    "lam": 2.3,
+    "clip_rate": 0.01899401752942252,
+    "contam_precision": 0.048482764549127484,
+    "contam_recall": 0.19196732471068753,
+    "contam_enrichment": 10.106725678931388,
+    "clean_false_positive_rate": 0.018160251214894393
+  },
+  "G_additive_vs_scaling": {
+    "cv_shift_additive_model": 0.2472288930607976,
+    "cv_shift_scaling_model": 1.5773505668916126,
+    "additive_wins": true
+  },
+  "I_closure_lag_ge1": {
+    "eps": 0.004797079300390559,
+    "tau_theory": 7.898594768076046,
+    "lambda_theory": 1.2319931264308248,
+    "lambda_RL": 2.3,
+    "ratio": 0.5356491854047065
+  },
+  "I_closure_lag_ge2": {
+    "eps": 0.004271327246365453,
+    "tau_theory": 8.26993658888673,
+    "lambda_theory": 1.289913628017274,
+    "lambda_RL": 2.3,
+    "ratio": 0.5608320121814235
+  },
+  "J_eta_q95": {
+    "Bmax": 0.058895822521299115,
+    "u_where_eta_lt_01": 0.001
+  },
+  "J_eta_q99": {
+    "Bmax": 0.6750806908681981,
+    "u_where_eta_lt_01": 0.001
+  },
+  "checklist": {
+    "A_scale_law": true,
+    "B_pivotal_core": true,
+    "C_B_nonscaling": false,
+    "D_positive_dominant": false,
+    "D_strongly_onesided": false,
+    "E_high_prob_bounded": "True",
+    "F_eps_estimable": true,
+    "G_additive_beats_scaling": true,
+    "H_clip_enriched": true,
+    "I_order_of_magnitude_closure": true
+  },
+  "evidence_level": "C",
+  "verdict": "Level C: paired displacement is PROBLEMATIC; rho+=0.49; clip enrichment@2.3=10.1x; lambda_theory/lambda_RL=0.54"
+}

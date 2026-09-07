@@ -1,0 +1,15 @@
+[recompute] flash_attention_2 unavailable (FlashAttention2 has been toggled on, but it cannot be used due to the following error: the package for FlashAttention2 doesn't seem to be installed.); falling back to sdpa
+Loading weights:   0%|          | 0/483 [00:00<?, ?it/s]Loading weights:   0%|          | 1/483 [00:00<01:18,  6.18it/s]Loading weights:   0%|          | 2/483 [00:00<01:20,  5.98it/s]Loading weights:   4%|▎         | 17/483 [00:00<00:09, 51.15it/s]Loading weights:   7%|▋         | 34/483 [00:00<00:05, 86.62it/s]Loading weights:  11%|█         | 52/483 [00:00<00:03, 111.64it/s]Loading weights:  14%|█▎        | 66/483 [00:00<00:03, 116.46it/s]Loading weights:  18%|█▊        | 88/483 [00:00<00:02, 143.66it/s]Loading weights:  22%|██▏       | 105/483 [00:00<00:02, 149.68it/s]Loading weights:  26%|██▌       | 124/483 [00:01<00:02, 157.24it/s]Loading weights:  29%|██▉       | 141/483 [00:01<00:02, 155.39it/s]Loading weights:  33%|███▎      | 160/483 [00:01<00:01, 163.65it/s]Loading weights:  37%|███▋      | 177/483 [00:01<00:01, 155.55it/s]Loading weights:  41%|████      | 196/483 [00:01<00:01, 152.26it/s]Loading weights:  44%|████▍     | 214/483 [00:01<00:01, 158.44it/s]Loading weights:  48%|████▊     | 233/483 [00:01<00:01, 163.32it/s]Loading weights:  52%|█████▏    | 252/483 [00:01<00:01, 167.95it/s]Loading weights:  56%|█████▌    | 269/483 [00:01<00:01, 165.02it/s]Loading weights:  59%|█████▉    | 286/483 [00:02<00:01, 159.87it/s]Loading weights:  63%|██████▎   | 305/483 [00:02<00:01, 162.59it/s]Loading weights:  67%|██████▋   | 323/483 [00:02<00:00, 167.15it/s]Loading weights:  70%|███████   | 340/483 [00:02<00:00, 163.87it/s]Loading weights:  74%|███████▍  | 358/483 [00:02<00:00, 166.87it/s]Loading weights:  78%|███████▊  | 376/483 [00:02<00:00, 169.49it/s]Loading weights:  81%|████████▏ | 393/483 [00:02<00:00, 158.98it/s]Loading weights:  85%|████████▌ | 412/483 [00:02<00:00, 162.09it/s]Loading weights:  89%|████████▉ | 429/483 [00:02<00:00, 156.57it/s]Loading weights:  93%|█████████▎| 448/483 [00:03<00:00, 164.03it/s]Loading weights:  96%|█████████▋| 465/483 [00:03<00:00, 162.83it/s]Loading weights: 100%|█████████▉| 482/483 [00:03<00:00, 162.37it/s]Loading weights: 100%|██████████| 483/483 [00:03<00:00, 146.34it/s]
+[recompute] batch 0/235
+[recompute] batch 20/235
+[recompute] batch 40/235
+[recompute] batch 60/235
+[recompute] batch 80/235
+[recompute] batch 100/235
+[recompute] batch 120/235
+[recompute] batch 140/235
+[recompute] batch 160/235
+[recompute] batch 180/235
+[recompute] batch 200/235
+[recompute] batch 220/235
+[recompute] wrote /home/kzhao2/nobackup/autodelete/gap_measurement/recompute/dense/recomp_shard004_bf16.parquet (1555459 rows), meta={'arch': 'dense', 'precision': 'bf16', 'attn_impl': 'sdpa', 'torch': '2.11.0+cu130', 'subsample': '1.0'}

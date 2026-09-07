@@ -1,0 +1,190 @@
+{
+  "summary": {
+    "No correction": {
+      "final_reward": 0.74512,
+      "ep3_reward": 0.7290544827586205,
+      "gapmax_last10": 9.503319999999999,
+      "entropy_last10": 0.21693400000000002,
+      "grad_last10": 0.727795,
+      "rs_last10": 0.0
+    },
+    "Exact ratio": {
+      "final_reward": 0.83105,
+      "ep3_reward": 0.8432100000000001,
+      "gapmax_last10": 22.1057,
+      "entropy_last10": 0.093058,
+      "grad_last10": 2.4307900000000005,
+      "rs_last10": 0.00027895700000000003
+    },
+    "TIS": {
+      "final_reward": 0.86133,
+      "ep3_reward": 0.8468489655172412,
+      "gapmax_last10": 30.920500000000004,
+      "entropy_last10": 0.06433440000000001,
+      "grad_last10": 1.7775190000000003,
+      "rs_last10": 0.008842019999999999
+    },
+    "IcePop": {
+      "final_reward": 0.85547,
+      "ep3_reward": 0.8547279310344829,
+      "gapmax_last10": 24.8589,
+      "entropy_last10": 0.184232,
+      "grad_last10": 1.062829,
+      "rs_last10": 0.0533444
+    },
+    "KPop": {
+      "final_reward": 0.85938,
+      "ep3_reward": 0.8515293103448277,
+      "gapmax_last10": 22.5872,
+      "entropy_last10": 0.11611770000000002,
+      "grad_last10": 11.631980000000002,
+      "rs_last10": 0.287453
+    },
+    "Ours": {
+      "final_reward": 0.88086,
+      "ep3_reward": 0.8665144827586208,
+      "gapmax_last10": 32.6817,
+      "entropy_last10": 0.0776443,
+      "grad_last10": 1.3962299999999999,
+      "rs_last10": 0.0580943
+    }
+  },
+  "affected_rates": {
+    "TIS": 0.005228599844080252,
+    "IcePop": 0.024378467245738146,
+    "KPop": 0.002431884013073313,
+    "Ours": 0.038930936705116256
+  },
+  "step_wall_s": {
+    "No correction": 33.0,
+    "Exact ratio": 32.0,
+    "TIS": 32.0,
+    "IcePop": 33.0,
+    "KPop": 31.0,
+    "Ours": 34.0
+  },
+  "heldout_curve": {
+    "No correction": [
+      [
+        0,
+        52.31
+      ],
+      [
+        28,
+        52.459999999999994
+      ],
+      [
+        57,
+        54.13
+      ],
+      [
+        86,
+        56.1
+      ]
+    ],
+    "Exact ratio": [
+      [
+        0,
+        52.31
+      ],
+      [
+        28,
+        59.97
+      ],
+      [
+        57,
+        60.419999999999995
+      ],
+      [
+        86,
+        64.59
+      ]
+    ],
+    "TIS": [
+      [
+        0,
+        52.31
+      ],
+      [
+        28,
+        59.29
+      ],
+      [
+        57,
+        63.31
+      ],
+      [
+        86,
+        62.4
+      ]
+    ],
+    "IcePop": [
+      [
+        0,
+        52.31
+      ],
+      [
+        28,
+        59.74
+      ],
+      [
+        57,
+        62.4
+      ],
+      [
+        86,
+        64.82
+      ]
+    ],
+    "KPop": [
+      [
+        0,
+        52.31
+      ],
+      [
+        28,
+        61.260000000000005
+      ],
+      [
+        57,
+        63.839999999999996
+      ],
+      [
+        86,
+        59.44
+      ]
+    ],
+    "Ours": [
+      [
+        0,
+        52.31
+      ],
+      [
+        28,
+        61.260000000000005
+      ],
+      [
+        57,
+        64.29
+      ],
+      [
+        86,
+        64.67
+      ]
+    ]
+  },
+  "eval_results_found": {
+    "curve_nocorr_epoch0epochstep28globalstep28": 52.459999999999994,
+    "curve_nocorr_epoch1epochstep28globalstep57": 54.13,
+    "curve_fullis_epoch0epochstep28globalstep28": 59.97,
+    "curve_fullis_epoch1epochstep28globalstep57": 60.419999999999995,
+    "curve_tis_epoch0epochstep28globalstep28": 59.29,
+    "curve_tis_epoch1epochstep28globalstep57": 63.31,
+    "curve_icepop_epoch0epochstep28globalstep28": 59.74,
+    "curve_icepop_epoch1epochstep28globalstep57": 62.4,
+    "curve_kpop_epoch0epochstep28globalstep28": 61.260000000000005,
+    "curve_kpop_epoch1epochstep28globalstep57": 63.839999999999996,
+    "curve_ours_epoch0epochstep28globalstep28": 61.260000000000005,
+    "curve_ours_epoch1epochstep28globalstep57": 64.29
+  }
+}

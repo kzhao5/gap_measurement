@@ -1,0 +1,437 @@
+diff --git a/areal/api/cli_args.py b/areal/api/cli_args.py
+index 117642a..bfd7db8 100644
+--- a/areal/api/cli_args.py
++++ b/areal/api/cli_args.py
+@@ -1543,7 +1543,7 @@ class RejectionSamplingConfig:
+ 
+         _VALID_LEVELS = ("token", "sequence")
+         _VALID_ACTIONS = ("mask", "clamp")
+-        _VALID_METRICS = ("ratio", "kl_k1", "kl_k2", "kl_k3")
++        _VALID_METRICS = ("ratio", "kl_k1", "kl_k2", "kl_k3", "binary_kl")  # PATCH(kzhao2): upstream bug, binary_kl documented+implemented but missing here
+         _VALID_AGGS = ("sum", "mean", "max")
+ 
+         # Validate enum-like fields.
+@@ -1917,6 +1917,9 @@ class vLLMConfig:
+     seed: int = 1
+     skip_tokenizer_init: bool = False
+     enforce_eager: bool = False
++    # Custom all-reduce hits 'invalid argument' in CUDA graph capture on this
++    # cluster's nodes (same failure as SGLang's sgl_kernel); NCCL path works.
++    disable_custom_all_reduce: bool = False
+     dtype: str = "bfloat16"
+     distributed_executor_backend: str = "mp"
+     # original
+diff --git a/areal/engine/fsdp_engine.py b/areal/engine/fsdp_engine.py
+index d4f1d34..f6aee62 100644
+--- a/areal/engine/fsdp_engine.py
++++ b/areal/engine/fsdp_engine.py
+@@ -697,6 +697,14 @@ class FSDPEngine(TrainEngine):
+         assert self.optimizer_config is not None
+         assert self.lr_scheduler is not None
+ 
++        _kt_ls = float(os.environ.get("KT_FP16_LOSS_SCALE", "0"))
++        if _kt_ls > 0:
++            # Static loss scaling for fp16 (Precision-RL reproduction): unscale before clip;
++            # the existing non-finite grad_norm guard below provides skip-on-overflow.
++            with torch.no_grad():
++                for _p in self.model.parameters():
++                    if _p.grad is not None:
++                        _p.grad.div_(_kt_ls)
+         grad_norm = fsdp2_clip_grad_norm(
+             list(self.model.parameters()),
+             max_norm=self.optimizer_config.gradient_clipping,
+@@ -768,7 +776,8 @@ class FSDPEngine(TrainEngine):
+ 
+             if not forward_only and loss is not None:
+                 with trace_scope("fsdp_engine.backward"):
+-                    loss.backward()
++                    _kt_ls = float(os.environ.get("KT_FP16_LOSS_SCALE", "0"))
++                    (loss * _kt_ls).backward() if _kt_ls > 0 else loss.backward()
+ 
+     def train_batch(
+         self,
+@@ -1980,6 +1989,9 @@ class FSDPEngine(TrainEngine):
+                 is_qwen3_moe_model(self.model_config.model_type)
+                 or is_qwen3_vl_model(self.model_config.model_type)
+                 or is_qwen3_5_model(self.model_config.model_type)
++                # deepseek_v2's modeling calls create_causal_mask, which cannot
++                # take the dict mask; with FA2 + packed inputs None is correct.
++                or self.model_config.model_type == "deepseek_v2"
+             ):
+                 mb["attention_mask"] = None
+                 padded_mb["attention_mask"] = None
+diff --git a/areal/engine/vllm_ext/areal_vllm_server.py b/areal/engine/vllm_ext/areal_vllm_server.py
+index 4cc806a..b7a9aca 100644
+--- a/areal/engine/vllm_ext/areal_vllm_server.py
++++ b/areal/engine/vllm_ext/areal_vllm_server.py
+@@ -368,9 +368,12 @@ if __name__ == "__main__":
+     def _areal_build_app(args, supported_tasks=None, model_config=None):
+         """Monkey-patched build_app that replaces vLLM's /v1/completions route
+         with AReaL's wrapped version and adds AReaL custom endpoints."""
+-        app = _original_build_app(
+-            args, supported_tasks=supported_tasks, model_config=model_config
+-        )
++        import inspect as _inspect
++        _kw = {"supported_tasks": supported_tasks}
++        # vLLM <=0.16 build_app has no model_config parameter; newer versions do.
++        if "model_config" in _inspect.signature(_original_build_app).parameters:
++            _kw["model_config"] = model_config
++        app = _original_build_app(args, **_kw)
+         # Remove vLLM's /v1/completions POST route so AReaL's takes precedence
+         app.router.routes = [
+             route
+diff --git a/areal/engine/vllm_remote.py b/areal/engine/vllm_remote.py
+index 2d76930..0f2c4c8 100644
+--- a/areal/engine/vllm_remote.py
++++ b/areal/engine/vllm_remote.py
+@@ -297,6 +297,9 @@ class VLLMBackend:
+         """Launch vLLM server subprocess."""
+         cmd = vLLMConfig.build_cmd_from_args(server_args)
+         _env = self.build_server_env(os.environ)
++        # Cluster FIPS OpenSSL kills the server at startup; force the workaround
++        # regardless of what the scheduler's env filtering keeps.
++        _env["OPENSSL_CONF"] = "/dev/null"
+ 
+         logger.info(f"Launching vLLM server with command: {' '.join(cmd)}")
+         return subprocess.Popen(
+diff --git a/areal/experimental/openai/client.py b/areal/experimental/openai/client.py
+index c2edfb7..d528989 100644
+--- a/areal/experimental/openai/client.py
++++ b/areal/experimental/openai/client.py
+@@ -535,7 +535,9 @@ def concat_prompt_token_ids_with_parent(
+         tools=tools,
+         add_generation_prompt=True,
+         tokenize=True,
+-        **extra_body.get("chat_template_kwargs", {}),
++        # Default to no thinking block (matches RLVRWorkflow); callers can override
++        # via extra_body.chat_template_kwargs.
++        **{"enable_thinking": False, **extra_body.get("chat_template_kwargs", {})},
+     )
+     parent_eos_num = parent_tokens.count(eos_token_id)
+     if parent_eos_num > 0:
+@@ -770,7 +772,7 @@ class AsyncCompletionsWithReward(BaseAsyncCompletions):
+                 tools=tools_list,
+                 add_generation_prompt=True,
+                 tokenize=True,
+-                **extra_body.get("chat_template_kwargs", {}),
++                **{"enable_thinking": False, **extra_body.get("chat_template_kwargs", {})},
+             )
+         elif self.chat_template_type == "concat":
+             concat_messages = (
+@@ -1225,7 +1227,7 @@ class AsyncResponsesWithReward(BaseAsyncResponses):
+                 tools=tools_list,
+                 add_generation_prompt=True,
+                 tokenize=True,
+-                **extra_body.get("chat_template_kwargs", {}),
++                **{"enable_thinking": False, **extra_body.get("chat_template_kwargs", {})},
+             )
+         elif self.chat_template_type == "concat":
+             remaining = interaction.remaining_messages
+diff --git a/areal/infra/controller/rollout_callback.py b/areal/infra/controller/rollout_callback.py
+index fc00cef..6a8fca6 100644
+--- a/areal/infra/controller/rollout_callback.py
++++ b/areal/infra/controller/rollout_callback.py
+@@ -29,7 +29,8 @@ class RolloutCallback:
+     """
+ 
+     controller_addr: str
+-    request_timeout: float = 600.0
++    # 600s is too short for disk weight reloads of a 30B model under NFS contention.
++    request_timeout: float = 7200.0
+ 
+     def _post(self, endpoint: str, payload: dict[str, Any] | None = None) -> dict:
+         """Make synchronous HTTP POST to controller callback endpoint.
+diff --git a/areal/infra/data_service/controller/controller.py b/areal/infra/data_service/controller/controller.py
+index 2159cb5..b8e3c76 100644
+--- a/areal/infra/data_service/controller/controller.py
++++ b/areal/infra/data_service/controller/controller.py
+@@ -70,7 +70,7 @@ class DataController:
+         self._workers_ready = threading.Event()
+         self._shutdown_requested = threading.Event()
+ 
+-    _WORKERS_READY_TIMEOUT: float = 30.0
++    _WORKERS_READY_TIMEOUT: float = 300.0  # PATCH(kzhao2): slow-NFS cluster, forked worker cold-import ~50s
+ 
+     # -- Initialize --------------------------------------------------------
+ 
+diff --git a/areal/infra/remote_inf_engine.py b/areal/infra/remote_inf_engine.py
+index e6d5ae8..0fa2276 100644
+--- a/areal/infra/remote_inf_engine.py
++++ b/areal/infra/remote_inf_engine.py
+@@ -1528,7 +1528,7 @@ def _update_weights_from_disk(
+         update_name = names.update_weights_from_disk(
+             experiment_name, trial_name, model_version
+         )
+-        save_timestamp = float(name_resolve.wait(update_name, timeout=120))
++        save_timestamp = float(name_resolve.wait(update_name, timeout=3600))  # 57GB HF save on NFS can exceed 120s
+         load_timestamp = datetime.now().timestamp()
+ 
+         # Get requests from backend with version for LoRA name
+diff --git a/areal/infra/scheduler/local.py b/areal/infra/scheduler/local.py
+index 4522dec..2bd3708 100644
+--- a/areal/infra/scheduler/local.py
++++ b/areal/infra/scheduler/local.py
+@@ -101,7 +101,7 @@ class LocalScheduler(Scheduler):
+         self,
+         gpu_devices: list[int] | None = None,
+         log_dir: str | None = None,
+-        startup_timeout: float = 30.0,
++        startup_timeout: float = 300.0,  # PATCH(kzhao2): slow-NFS cluster
+         health_check_interval: float = 1.0,
+         *,
+         experiment_name: str | None = None,
+@@ -285,7 +285,7 @@ class LocalScheduler(Scheduler):
+         session: aiohttp.ClientSession,
+         host: str,
+         port: int,
+-        timeout: float = 60,
++        timeout: float = 300,  # PATCH(kzhao2): NFS cold-import ~80s per forked worker
+     ) -> bool:
+         url = f"http://{format_hostport(host, port)}/health"
+         deadline = time.time() + timeout
+diff --git a/areal/trainer/ppo/actor.py b/areal/trainer/ppo/actor.py
+index 75dbbd7..7be672f 100644
+--- a/areal/trainer/ppo/actor.py
++++ b/areal/trainer/ppo/actor.py
+@@ -1,6 +1,7 @@
+ # SPDX-License-Identifier: Apache-2.0
+ 
+ import functools
++import os
+ from typing import Any
+ 
+ import torch
+@@ -485,6 +486,39 @@ def grpo_loss_fn(
+     if m2_threshold is not None:
+         loss_mask = _apply_m2po_masking(old_logp, prox_logp, loss_mask, m2_threshold)
+ 
++    # PATCH(kzhao2, kt-dump): env-gated per-token (old, prox, cur, version)
++    # dump for log k_t | h_t monitoring. Inert unless KT_DUMP_DIR is set.
++    _kt_dir = os.environ.get("KT_DUMP_DIR")
++    if _kt_dir:
++        global _KT_DUMP_CALLS
++        try:
++            _KT_DUMP_CALLS += 1
++        except NameError:
++            _KT_DUMP_CALLS = 0
++        if _KT_DUMP_CALLS % int(os.environ.get("KT_DUMP_EVERY", "20")) == 0:
++            import time as _time
++
++            import pyarrow as _pa
++            import pyarrow.parquet as _pq
++
++            _m = loss_mask.bool()
++            _cols = {
++                "old_logp": old_logp.detach()[_m].float().cpu().numpy(),
++                "prox_logp": prox_logp.detach()[_m].float().cpu().numpy(),
++                "cur_logp": logprobs.detach()[_m].float().cpu().numpy(),
++            }
++            _v = input_data.get("versions")
++            if _v is not None:
++                _cols["version"] = _v[_m].cpu().numpy()
++            os.makedirs(_kt_dir, exist_ok=True)
++            _pq.write_table(
++                _pa.table(_cols),
++                os.path.join(
++                    _kt_dir,
++                    f"kt_{int(_time.time())}_{os.getpid()}_{_KT_DUMP_CALLS}.parquet",
++                ),
++            )
++
+     # Use CISPO, SAPO, or PPO loss
+     if use_cispo_loss:
+         if use_sapo_loss:
+diff --git a/areal/utils/functional/functional.py b/areal/utils/functional/functional.py
+index 6d82f17..3307c08 100644
+--- a/areal/utils/functional/functional.py
++++ b/areal/utils/functional/functional.py
+@@ -1,6 +1,7 @@
+ # SPDX-License-Identifier: Apache-2.0
+ 
+ import functools
++import os
+ from dataclasses import dataclass
+ from typing import Any
+ 
+@@ -304,7 +305,11 @@ def apply_rejection_sampling(
+                     batch_size, device=log_ratio.device, dtype=log_ratio.dtype
+                 ).scatter_add_(0, sequence_idx, masked_agg)
+                 seq_log_mean = seq_log_sum / valid_count_per_seq.to(log_ratio.dtype)
+-                behave_imp_weight = torch.exp(seq_log_mean)[sequence_idx]
++                if os.environ.get("KT_SEQ_PROD") == "1":
++                    # Literature Seq-TIS/MIS: per-sequence weight = product ratio (sum of log k)
++                    behave_imp_weight = torch.exp(seq_log_sum)[sequence_idx]
++                else:
++                    behave_imp_weight = torch.exp(seq_log_mean)[sequence_idx]
+                 original_weight = behave_imp_weight
+ 
+             if config.agg == "sum":
+@@ -364,7 +369,12 @@ def apply_rejection_sampling(
+             # Ratio metric + sequence level: geometric mean as uniform weight.
+             if _use_log_agg:
+                 seq_log_mean = masked_agg.sum(dim=-1, keepdim=True) / valid_count
+-                behave_imp_weight = torch.exp(seq_log_mean).expand_as(log_ratio)
++                if os.environ.get("KT_SEQ_PROD") == "1":
++                    behave_imp_weight = torch.exp(
++                        masked_agg.sum(dim=-1, keepdim=True)
++                    ).expand_as(log_ratio)
++                else:
++                    behave_imp_weight = torch.exp(seq_log_mean).expand_as(log_ratio)
+                 original_weight = behave_imp_weight
+ 
+             if config.agg == "sum":
+@@ -404,11 +414,37 @@ def apply_rejection_sampling(
+         if config.action == "mask":
+             in_bounds = _check_bounds(metric, config)
+         else:
+-            # clamp mode: directly clamp importance weight
+-            behave_imp_weight = behave_imp_weight.clamp(
+-                min=config.lower if config.lower is not None else 0.0,
+-                max=config.upper,
+-            )
++            # PATCH(kzhao2, sigma-TIS): env-gated confidence-scaled clamp.
++            # log M = clip(log k, -a*sig, +b*sig), sig = max(c1*(1-p_t), floor)
++            # with p_t = pi_proximal(y_t|h_t). Measured scale law: sigma of
++            # log k_t | p_t = c1*(1-p_t) over six decades (c1=0.195 for
++            # Qwen1.5-MoE-A2.7B); floor = bf16 quantization floor. Inert
++            # unless KT_SIGMA_TIS=1 -> plain TIS clamp below.
++            if os.environ.get("KT_SIGMA_TIS") == "1":
++                _c1 = float(os.environ.get("KT_SIGMA_C1", "0.195"))
++                _fl = float(os.environ.get("KT_SIGMA_FLOOR", "3e-7"))
++                _a = float(os.environ.get("KT_SIGMA_A", "20"))
++                _b = float(os.environ.get("KT_SIGMA_B", "12"))
++                _p = torch.exp(proximal_logprobs.detach().float())
++                _sig = torch.clamp(_c1 * (1.0 - _p), min=_fl)
++                # v3 extensions (both default-off): KT_SIGMA_ETA adds an
++                # additive staleness allowance (affine band lam*(1-p)+eta);
++                # KT_SIGMA_LOWER_ABS replaces the scaled lower bound with a
++                # constant floor on log k (e.g. 6.91 => w >= 0.001).
++                _eta = float(os.environ.get("KT_SIGMA_ETA", "0"))
++                _hi = _b * _sig + _eta
++                _labs = os.environ.get("KT_SIGMA_LOWER_ABS")
++                if _labs is not None:
++                    _lo = torch.full_like(_sig, -float(_labs))
++                else:
++                    _lo = -(_a * _sig + _eta)
++                behave_imp_weight = torch.exp(log_ratio.clamp(min=_lo, max=_hi))
++            else:
++                # clamp mode: directly clamp importance weight
++                behave_imp_weight = behave_imp_weight.clamp(
++                    min=config.lower if config.lower is not None else 0.0,
++                    max=config.upper,
++                )
+ 
+     # Step 5: Update loss_mask or keep it based on action mode
+     if config.action == "mask":
+@@ -444,6 +480,17 @@ def compute_binary_kl_divergence(
+     Treats each element as a Bernoulli: P = [p, 1-p], Q = [q, 1-q].
+     KL(P||Q) = p*log(p/q) + (1-p)*log((1-p)/(1-q))
+     """
++    # PATCH(kzhao2, KT_KPOP_FIX): in fp32, 1-1e-8 == 1.0, so tokens whose
++    # probability is exactly 1 on either side give (1-p)=0 -> NaN/inf metric,
++    # which the bounds check treats as out-of-bounds (~20% of tokens masked,
++    # all at the highest confidence). With KT_KPOP_FIX=1 compute in float64
++    # with a representable eps and map NaN (both sides saturated) to 0.
++    if os.environ.get("KT_KPOP_FIX") == "1":
++        eps64 = 1e-7
++        p = torch.clamp(torch.exp(log_p.double()), eps64, 1.0 - eps64)
++        q = torch.clamp(torch.exp(log_q.double()), eps64, 1.0 - eps64)
++        kl = p * torch.log(p / q) + (1 - p) * torch.log((1 - p) / (1 - q))
++        return torch.nan_to_num(kl, nan=0.0, posinf=1e6, neginf=0.0).to(log_p.dtype)
+     p = torch.clamp(torch.exp(log_p), eps, 1.0 - eps)
+     q = torch.clamp(torch.exp(log_q), eps, 1.0 - eps)
+     return p * torch.log(p / q) + (1 - p) * torch.log((1 - p) / (1 - q))
+diff --git a/areal/utils/hf_utils.py b/areal/utils/hf_utils.py
+index 6d98c62..88d43e2 100644
+--- a/areal/utils/hf_utils.py
++++ b/areal/utils/hf_utils.py
+@@ -63,6 +63,17 @@ def load_hf_tokenizer(
+         force_download=False,
+         **kwargs,
+     )
++    # transformers 5.3 resolves DeepSeek-V2's byte-level BPE tokenizer to the slow
++    # LlamaTokenizer, which produces different token ids (spaces lost). If a
++    # tokenizer.json exists, prefer the fast tokenizers backend.
++    if type(tokenizer).__name__ == "LlamaTokenizer":
++        try:
++            _fast = transformers.PreTrainedTokenizerFast.from_pretrained(
++                model_name_or_path, **kwargs
++            )
++            tokenizer = _fast
++        except Exception:
++            pass
+     if tokenizer.pad_token_id is None:
+         tokenizer.pad_token_id = tokenizer.eos_token_id
+     return tokenizer
+diff --git a/areal/v2/inference_service/data_proxy/tokenizer_proxy.py b/areal/v2/inference_service/data_proxy/tokenizer_proxy.py
+index f33369b..953c6d3 100644
+--- a/areal/v2/inference_service/data_proxy/tokenizer_proxy.py
++++ b/areal/v2/inference_service/data_proxy/tokenizer_proxy.py
+@@ -25,6 +25,9 @@ class TokenizerProxy:
+         loop = asyncio.get_running_loop()
+ 
+         def _apply():
++            # Match RLVRWorkflow's default: no thinking block unless explicitly requested.
++            # (Qwen3 templates default to thinking mode, which burned the 1024-token budget.)
++            kw.setdefault("enable_thinking", False)
+             return _apply_chat_template(
+                 self._tok, messages, tokenize=True, add_generation_prompt=True, **kw
+             )
+diff --git a/areal/workflow/openai/math_agent.py b/areal/workflow/openai/math_agent.py
+index 5ee0bac..08053fb 100644
+--- a/areal/workflow/openai/math_agent.py
++++ b/areal/workflow/openai/math_agent.py
+@@ -46,7 +46,7 @@ class MathAgent:
+         if isinstance(messages, str):
+             messages = [{"role": "user", "content": messages}]
+         comp: ChatCompletion = await client.chat.completions.create(
+-            messages=messages, model="default", **self.kwargs
++            messages=messages, model="default", extra_body={"chat_template_kwargs": {"enable_thinking": False}}, **self.kwargs
+         )
+ 
+         return await self._reward_fn(
+@@ -81,6 +81,7 @@ class MultiTurnMathAgent:
+         for _ in range(self.max_turns):
+             response: ChatCompletion = await client.chat.completions.create(
+                 messages=messages,
++                extra_body={"chat_template_kwargs": {"enable_thinking": False}},
+                 model="default",
+                 **self.kwargs,
+             )
+diff --git a/examples/math/gsm8k_icepop.yaml b/examples/math/gsm8k_icepop.yaml
+index 6209530..73770ab 100644
+--- a/examples/math/gsm8k_icepop.yaml
++++ b/examples/math/gsm8k_icepop.yaml
+@@ -20,6 +20,7 @@ scheduler:
+ 
+ rollout:
+   backend: "sglang:d4p1t1"
++  request_timeout: 10800   # disk weight reload of 30B over NFS can exceed the 3600s default
+   experiment_name: ${experiment_name}
+   trial_name: ${trial_name}
+   max_concurrent_rollouts: 256
+@@ -46,6 +47,7 @@ gconfig:
+ 
+ actor:
+   backend: "fsdp:d4p1t1"
++  request_timeout: 10800
+   experiment_name: ${experiment_name}
+   trial_name: ${trial_name}
+   path: Qwen/Qwen2.5-1.5B-Instruct
+@@ -86,7 +88,7 @@ actor:
+   adv_norm:
+     mean_level: batch
+     std_level: batch
+-  weight_update_mode: xccl
++  weight_update_mode: disk   # xccl to vLLM hangs (FSDP all-gather waits forever); disk reload works
+   max_new_tokens: ${gconfig.max_new_tokens}
+   scheduling_spec:
+     - task_type: worker
+@@ -127,6 +129,7 @@ vllm:
+   model: ${actor.path}
+   seed: ${seed}
+   skip_tokenizer_init: false
++  disable_custom_all_reduce: true
+   dtype: ${actor.dtype}
+   max_model_len: 32768
+   gpu_memory_utilization: 0.8

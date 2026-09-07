@@ -1,0 +1,16 @@
+[recompute] flash_attention_2 unavailable (FlashAttention2 has been toggled on, but it cannot be used due to the following error: the package for FlashAttention2 doesn't seem to be installed.); falling back to sdpa
+Loading weights:   0%|          | 0/387 [00:00<?, ?it/s]Loading weights:   1%|          | 4/387 [00:00<00:11, 32.15it/s]Loading weights:   5%|▌         | 20/387 [00:00<00:04, 83.86it/s]Loading weights:   9%|▉         | 36/387 [00:00<00:03, 98.67it/s]Loading weights:  13%|█▎        | 52/387 [00:00<00:03, 103.12it/s]Loading weights:  18%|█▊        | 68/387 [00:00<00:02, 106.38it/s]Loading weights:  22%|██▏       | 84/387 [00:00<00:02, 110.00it/s]Loading weights:  26%|██▌       | 100/387 [00:00<00:02, 109.90it/s]Loading weights:  30%|██▉       | 116/387 [00:01<00:02, 108.03it/s]Loading weights:  34%|███▍      | 132/387 [00:01<00:02, 108.83it/s]Loading weights:  38%|███▊      | 148/387 [00:01<00:02, 110.57it/s]Loading weights:  42%|████▏     | 164/387 [00:01<00:02, 107.79it/s]Loading weights:  47%|████▋     | 180/387 [00:01<00:01, 109.07it/s]Loading weights:  51%|█████     | 196/387 [00:01<00:01, 108.86it/s]Loading weights:  55%|█████▍    | 212/387 [00:02<00:01, 106.82it/s]Loading weights:  59%|█████▉    | 228/387 [00:02<00:01, 107.91it/s]Loading weights:  63%|██████▎   | 244/387 [00:02<00:01, 109.35it/s]Loading weights:  67%|██████▋   | 260/387 [00:02<00:01, 112.22it/s]Loading weights:  71%|███████▏  | 276/387 [00:02<00:01, 109.19it/s]Loading weights:  75%|███████▌  | 292/387 [00:02<00:00, 112.91it/s]Loading weights:  80%|███████▉  | 308/387 [00:02<00:00, 115.79it/s]Loading weights:  84%|████████▎ | 324/387 [00:02<00:00, 114.69it/s]Loading weights:  88%|████████▊ | 340/387 [00:03<00:00, 115.61it/s]Loading weights:  92%|█████████▏| 356/387 [00:03<00:00, 118.81it/s]Loading weights:  96%|█████████▌| 372/387 [00:03<00:00, 121.80it/s]Loading weights: 100%|██████████| 387/387 [00:03<00:00, 114.12it/s]
+[recompute] batch 0/241
+[recompute] batch 20/241
+[recompute] batch 40/241
+[recompute] batch 60/241
+[recompute] batch 80/241
+[recompute] batch 100/241
+[recompute] batch 120/241
+[recompute] batch 140/241
+[recompute] batch 160/241
+[recompute] batch 180/241
+[recompute] batch 200/241
+[recompute] batch 220/241
+[recompute] batch 240/241
+[recompute] wrote /home/kzhao2/nobackup/autodelete/gap_measurement/recompute/moe/recomp_shard003_bf16.parquet (1572982 rows), meta={'arch': 'moe', 'precision': 'bf16', 'attn_impl': 'sdpa', 'torch': '2.11.0+cu130', 'subsample': '1.0'}

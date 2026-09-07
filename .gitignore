@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+core.*
+results/*.parquet
+results/tokens_*
+results/trajs_*
+export/*.tar.gz
+*.zip
+nobackup
+*.pyc
+results/**/*.parquet
+results/entropy/
