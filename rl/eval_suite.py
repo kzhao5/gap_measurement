@@ -70,8 +70,19 @@ def judge_em(pred_text, gold):
     return bool(nums) and bool(gold) and nums[-1].rstrip(".") == gold
 
 def main():
-    tok = AutoTokenizer.from_pretrained(path)
-    llm = LLM(model=path, dtype="bfloat16", gpu_memory_utilization=0.85,
+    # Checkpoints saved by AReaL carry a re-serialized tokenizer that decodes
+    # byte-level BPE wrongly under transformers 5.x (DeepSeek: 'Ġ' artifacts,
+    # different ids). Always tokenize/decode with the base model's tokenizer.
+    import glob as _glob
+    _base = {"kt-dsv2": "deepseek-ai--DeepSeek-V2-Lite-Chat", "kt-q30b": "Qwen--Qwen3-30B-A3B"}
+    tok_path = path
+    for _cell, _repo in _base.items():
+        if _cell in path:
+            _snap = sorted(_glob.glob(os.path.expanduser(f"~/nobackup/autodelete/hf/models--{_repo}/snapshots/*/")))
+            if _snap: tok_path = _snap[-1]
+    if tok_path != path: print(f"TOKENIZER from base snapshot: {tok_path}", flush=True)
+    tok = AutoTokenizer.from_pretrained(tok_path)
+    llm = LLM(model=path, tokenizer=tok_path, dtype="bfloat16", gpu_memory_utilization=0.85,
               max_model_len=4096, enforce_eager=True, tensor_parallel_size=tp)
     sp = SamplingParams(temperature=0.0, max_tokens=1536)
     lines = []

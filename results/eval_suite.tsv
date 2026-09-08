@@ -422,3 +422,9 @@ suite_q30b_kpopfixvllm_s2	math500	0.7520	500
 suite_q30b_kpopfixvllm_s2	svamp	0.9400	300
 suite_q30b_kpopfixvllm_s2	minerva	0.3235	272
 suite_q30b_kpopfixvllm_s2	olympiad	0.4703	674
+suite_q30b_fullisvllm_s2	gsm8k	0.9500	1319
+suite_q30b_fullisvllm_s2	gsm8k_em	0.8620	1319
+suite_q30b_fullisvllm_s2	math500	0.7420	500
+suite_q30b_fullisvllm_s2	svamp	0.9367	300
+suite_q30b_fullisvllm_s2	minerva	0.3346	272
+suite_q30b_fullisvllm_s2	olympiad	0.4852	674

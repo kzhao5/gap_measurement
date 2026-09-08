@@ -410,3 +410,5 @@ Qwen1.5/DSV2 无 thinking 模式,不受影响(cell A 无恙)。
 - 调度修正(09-07):cs QOS 上限 24h → 11 个 q30b s3 job 由 30h 改 24h(A100 实测 ~9 min/step,13h 足够);cs 再入维护 → 11 个 dsv2 s3 迁 m13h/gpu。队列 61 kt-cells(3 running)。
 - 2026-09-07 Overleaf 992331c:Table 1 填 DeepSeek base 行(70.66/25.40/67.67/6.25/6.08)与 Qwen3-30B base+3 个单种子行(nocorr s1/exact s1/KPop† s2),caption 注明 in-progress 与 GSM8K 饱和。清单:dsv2 33 pending、q30b 4 done/3 run/26 pending,无缺口。
 - ⑬ m13h 上 dsv2 vLLM worker 死于 Triton/inductor JIT 编译(gcc cuda_utils.c 失败,缺 Python.h):我在改 account-agnostic 时注释掉了 env.sh 的 C_INCLUDE_PATH,现改为从 venv 解释器动态取 include 目录。13602494 因此失败;13602497(同节点,已起跑)预计同死,后续 job 自动继承。
+- ✅ 09-07 16:xx:dsv2 tis s2 在 m13h/H200 首奖励 0.768、seq_len 271 —— Python.h/C_INCLUDE_PATH 修复在 H200 生效;dsv2 批量正式流动(tokenizer 修复口径 ≈0.77 复现)。
+- ⑭ 09-08:dsv2 tis s2 训练健康(0.77→0.88,3 ckpt)但评测 20%:AReaL 保存的 checkpoint tokenizer(tokenizer_class LlamaTokenizer)在 eval venv 下 decode 出 'Ġ' 且分词不同 → eval_suite 改为一律用 base 模型快照的 tokenizer(model 仍为 ckpt)。已清除该污染行并重评。dsv2 disk 模式实测 ~5.7 min/step(H200)→ 8h 不够,kpop/kpopfix s2 超时于 57/84 步;pending 全部改 12h,两者重提。

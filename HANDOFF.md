@@ -51,11 +51,11 @@ sbatch --time=04:00:00 --partition=dw --qos=dw87 --exclude=dw-2-4 \
 cd ~/gap_measurement; DWX="--exclude=dw-2-4"
 for m in nocorr fullis tis icepop kpop kpopfix seqtis seqmis gspo fp16 ours; do
   L=""; [ "$m" = "ours" ] && L="LAMP=15.0"
-  sbatch --time=08:00:00 --partition=dw --qos=dw87 $DWX --export=ALL,CELL=dsv2,METHOD=$m,SEED=1,TAG=vllm,EXTRA="rollout.backend=vllm:d4p1t1",$L rl/cells.sbatch
-  sbatch --time=08:00:00 --partition=m13h --qos=gpu       --export=ALL,CELL=dsv2,METHOD=$m,SEED=3,TAG=vllm,EXTRA="rollout.backend=vllm:d4p1t1",$L rl/cells.sbatch
+  sbatch --time=12:00:00 --partition=dw --qos=dw87 $DWX --export=ALL,CELL=dsv2,METHOD=$m,SEED=1,TAG=vllm,EXTRA="rollout.backend=vllm:d4p1t1",$L rl/cells.sbatch
+  sbatch --time=12:00:00 --partition=m13h --qos=gpu       --export=ALL,CELL=dsv2,METHOD=$m,SEED=3,TAG=vllm,EXTRA="rollout.backend=vllm:d4p1t1",$L rl/cells.sbatch
 done
 ```
-分区提示:dw=A100(dw87 可抢占 gstandby)、m13h=H200(最快)、cs/cs2=A100/H100(QOS `cs`,上限 24h;经常维护)。B200 节点 cs-3-1 不能用(fa3 断言),用 `--exclude` 排除。可用 `scontrol update JobId=<id> Partition=<p> QOS=<q>` 在分区间迁移排队 job。每个 dsv2 job 约 1.5–3h。
+分区提示:dw=A100(dw87 可抢占 gstandby)、m13h=H200(最快)、cs/cs2=A100/H100(QOS `cs`,上限 24h;经常维护)。B200 节点 cs-3-1 不能用(fa3 断言),用 `--exclude` 排除。可用 `scontrol update JobId=<id> Partition=<p> QOS=<q>` 在分区间迁移排队 job。每个 dsv2 job 约 6–9h(disk 权重同步),限时用 12h。
 
 ## 5. 状态核对脚本(提交前/汇报前都跑)
 ```bash
