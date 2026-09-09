@@ -9,8 +9,13 @@
 - **cell D DeepSeek-V2-Lite(dsv2)**:**这是接力的对象**。
 - **cell E Qwen3-30B-A3B(q30b)**:留在 kzhao2 账号跑,不要提交。
 
+## 0.5 【2026-09-09 更新】要跑什么:见 `results/TODO_QUEUE.md`
+kzhao2 账号已把 **40 个 pending job 全部取消**,交给 tianruny 账号跑。清单(cell/method/seed、提交模板、优先级、已完成不要重复的组合)在 **`results/TODO_QUEUE.md`**。
+优先 dsv2 的 22 个(每个约 8h,该模型 RL 有真实增益),其次 q30b 的 18 个(每个约 15h)。
+kzhao2 侧只保留 7 个正在跑的 job(TODO_QUEUE.md 末尾列出),跑完即止,不再提交新的。
+
 ## 1. 分工与去重规则(最重要)
-- tianruny 账号只跑 **dsv2 的 seed 1 和 seed 3**(11 方法 × 2 = 22 个 job)。dsv2 seed 2 与全部 q30b 由 kzhao2 账号跑。
+- tianruny 账号跑 `results/TODO_QUEUE.md` 里的全部 40 个组合(dsv2 22 + q30b 18)。kzhao2 账号不再提交新 job。
 - 提交前先 `git pull` 并运行 §5 的清单脚本,**已在 `results/eval_suite.tsv` 出现 `suite_dsv2_<method>vllm_s<seed>` 五行的组合不要再跑**。
 - 提交后立即把清单(方法/种子/JobID)写进 `results/OWNERSHIP_tianruny.md` 并 push,kzhao2 侧据此取消对应的重复 job。
 - 不改配方、不改 yaml、不改算子参数;TAG 固定为 `vllm`;dsv2 的 CIS 臂 `LAMP=15.0`(按该模型测得 c≈1.2 编译,详见 SIGMA_TIS)。
