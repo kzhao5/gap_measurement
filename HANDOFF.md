@@ -51,16 +51,24 @@ sbatch --time=04:00:00 --partition=dw --qos=dw87 --exclude=dw-2-4 \
 4. 结束后日志末尾出现 `Submitted batch job <id>`(评测链已触发),且评测 job 评的是 `epoch*` 目录(不是 `weight_update_v1`)。
 通过后 **取消该冒烟的评测行影响**:冒烟 TAG=smk,与正式 trial 目录不冲突,评测行 tag 为 `suite_dsv2_nocorrsmk_s1`,分析时忽略即可。
 
-## 4. 批量提交(22 个)
+## 4. 批量提交(以 `results/TODO_QUEUE.md` 的表格为唯一依据)
+**不要用"11 方法 × 固定 seed"的循环**:待跑的 40 个组合横跨 seed 1/2/3,固定循环会命中已完成或别人正在跑的组合,覆盖其 checkpoint。正确做法是从 TODO_QUEUE.md 的表格逐行提交:
+
 ```bash
-cd ~/gap_measurement; DWX="--exclude=dw-2-4"
-for m in nocorr fullis tis icepop kpop kpopfix seqtis seqmis gspo fp16 ours; do
+cd ~/gap_measurement && git pull -q
+# 先只提交 dsv2(22 个);q30b 等 dsv2 全部入队后再说
+awk -F'|' '/^\| [0-9]+ \| dsv2 \|/{gsub(/ /,"",$4);gsub(/ /,"",$5);gsub(/ /,"",$6);print $4,$5,$6}' results/TODO_QUEUE.md |
+while read m s st; do
+  [ "$st" = "TODO" ] || continue
   L=""; [ "$m" = "ours" ] && L="LAMP=15.0"
-  sbatch --time=12:00:00 --partition=dw --qos=dw87 $DWX --export=ALL,CELL=dsv2,METHOD=$m,SEED=1,TAG=vllm,EXTRA="rollout.backend=vllm:d4p1t1",$L rl/cells.sbatch
-  sbatch --time=12:00:00 --partition=m13h --qos=gpu       --export=ALL,CELL=dsv2,METHOD=$m,SEED=3,TAG=vllm,EXTRA="rollout.backend=vllm:d4p1t1",$L rl/cells.sbatch
+  P="--partition=dw --qos=dw87 --exclude=dw-2-4"; [ "$s" = "3" ] && P="--partition=m13h --qos=gpu"
+  sbatch --time=12:00:00 $P --export=ALL,CELL=dsv2,METHOD=$m,SEED=$s,TAG=vllm,EXTRA="rollout.backend=vllm:d4p1t1",$L rl/cells.sbatch
 done
 ```
-分区提示:dw=A100(dw87 可抢占 gstandby)、m13h=H200(最快)、cs/cs2=A100/H100(QOS `cs`,上限 24h;经常维护)。B200 节点 cs-3-1 不能用(fa3 断言),用 `--exclude` 排除。可用 `scontrol update JobId=<id> Partition=<p> QOS=<q>` 在分区间迁移排队 job。每个 dsv2 job 约 6–9h(disk 权重同步),限时用 12h。
+q30b 同理,把 `dsv2` 换成 `q30b`、`vllm:d4p1t1` 换成 `vllm:d2p1t2`、`--time=12:00:00` 换成 `--time=30:00:00`、`LAMP=15.0` 换成 `LAMP=0.95`。
+提交后逐行核对 jobid 与组合,写进 `results/OWNERSHIP_tianruny.md`。
+
+分区提示:dw=A100(dw87 可抢占 gstandby)、m13h=H200(最快)、cs/cs2=A100/H100(QOS `cs`,上限 24h;经常维护)。B200 节点 cs-3-1 不能用(fa3 断言),`--exclude` 排除。排队中可用 `scontrol update JobId=<id> Partition=<p> QOS=<q>` 迁移。dsv2 每个 job 约 6–9h(限时 12h),q30b 约 15h(限时 30h)。
 
 ## 5. 状态核对脚本(提交前/汇报前都跑)
 ```bash
@@ -70,7 +78,7 @@ methods=["nocorr","fullis","tis","icepop","kpop","kpopfix","seqtis","seqmis","gs
 rows={l.split()[0] for l in open("results/eval_suite.tsv")}
 sl=subprocess.run("sacct -u $USER -S 2026-09-01 -X -n --format=JobID,State%10,SubmitLine%300",shell=True,capture_output=True,text=True).stdout
 q={(m.group(2),m.group(3)):m.group(1) for m in re.finditer(r"(PENDING|RUNNING)\s.*CELL=dsv2,METHOD=([a-z0-9]+),SEED=(\d)",sl)}
-for s in "13":
+for s in "123":
   for m in methods:
     st="EVALUATED" if f"suite_dsv2_{m}vllm_s{s}" in rows else q.get((m,s),"MISSING")
     print(f"dsv2 {m:8s} s{s}: {st}")

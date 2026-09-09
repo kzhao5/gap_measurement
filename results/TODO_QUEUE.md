@@ -61,6 +61,9 @@ sbatch --time=30:00:00 --partition=m13h --qos=gpu \
 1. **dsv2 全部 22 个**(每个 ~8h,信息量最高:该模型 RL 有真实增益空间)。
 2. q30b 18 个(每个 ~15h;该模型 GSM8K 起点已 95%,主要用于证明饱和任务下的稳定性)。
 
+## 关于旧结果行(2026-09-09 处理)
+`results/eval_suite.tsv` 里 27 个不含 `vllm` 的 dsv2/q30b 旧 tag 已移入 `results/eval_suite_archive_pre_fixes.tsv`(它们分别是 DeepSeek 分词器 bug 期和 Qwen3 thinking 期的无效结果,**不要用于任何分析**)。有效结果一律带 `vllm`;两个 `*_base` 行有效并保留。
+
 ## 已完成、不要重复跑的组合(截至 2026-09-09,结果已在 results/eval_suite.tsv)
 - dsv2:nocorr s1/s3、fullis s1/s3、tis s2、seqtis s2
 - q30b:nocorr s1、fullis s1/s2、tis s2、kpop s2、kpopfix s2、seqmis s2、gspo s2、fp16 s2、ours s2
