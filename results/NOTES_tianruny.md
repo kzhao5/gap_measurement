@@ -175,3 +175,38 @@ RolloutCallback 7200 / name_resolve 3600 修掉。本条是 **rollout_complete �
 **canary 在 cs-1-1 上测到的 ~9 分/步是异常值**,原因是该节点当时被其他作业占满(mixed 状态)。
 正式 job 落在负载较轻的节点上时,A100 与 H200 差距不大(4.4 vs 4.0),**12h 限时余量充足**,
 不需要调整 `--time`。选节点时应避开 `mixed` 程度高的节点。
+
+### R3. 第二种挂起模式:训练全部完成后在**收尾阶段**静默挂起(无任何错误签名)
+**job 13621183(dsv2 kpop s3 @ m13h-2-2)**,时间线:
+```
+11:28:50  最后一步(global step 86 = 3 epoch × 29 步)的 ppo update 完成
+11:32:42  [RemoteInfEngine] Loading weights from disk done in 231.87s
+11:33:42  第 3 个 epoch checkpoint 落盘(epoch2epochstep28globalstep86,30G)
+11:35:43  最后的 vLLM engine 日志
+之后 41 分钟完全静默;job 仍为 RUNNING,剩余 5h28m
+```
+**与 R1 的区别**:R1 是训练中途挂死、伴随 12 次 `Read timed out` 和 stale session 清理;
+本次 `Read timed out` **0 次**、无 stale session、**无任何 Traceback/错误输出**,
+且**三个 epoch checkpoint 全部完整落盘**——训练产物是有效的,卡住的只是 python 进程退出,
+导致 `cells.sbatch` 末尾的评测链代码执行不到(`Submitted batch job` 出现 0 次)。
+
+**处置**:取消该 job(训练已完成,再占 8 张 H200 五个半小时无意义),
+用与 `cells.sbatch` **逐字相同**的命令手动接上评测:
+```bash
+CK=$RLROOT/experiments/checkpoints/$USER/kt-dsv2/kpopvllm-s3/default
+E=$(ls "$CK" | grep "^epoch" | tail -1)      # → epoch2epochstep28globalstep86
+sbatch --export=ALL,EVAL_PATH="$CK/$E",EVAL_TAG="suite_dsv2_kpopvllm_s3" rl/eval_suite.sbatch
+```
+提交为 13627007。**结果有效性不受影响**:评的是同一个 epoch* 目录,tag 格式不变。
+
+**值得注意的相关性**:R1 与 R3 两次挂起**都在 m13h(H200)节点**上
+(m13h-2-1 与 m13h-2-2),而同期 dw(A100)上的 13621177 / 13621178 一直正常推进。
+样本量太小,不足以下结论,但**后续排在 m13h 的 job(13626596 icepop s3、13621184 q30b seqtis s1)
+需要重点盯**。
+
+**给 kzhao2 的建议**:`cells.sbatch` 的评测链依赖 python 正常退出,这在收尾挂起时会整个丢掉。
+建议改成训练结束即写一个 sentinel 文件,或把评测提交挪到 `trap EXIT` 里,
+这样即使 python 挂死或 job 被 TIMEOUT 杀掉,已完成的 checkpoint 仍能自动进入评测。
+
+**监控要点**:识别这种情况的判据不是 job 状态(一直是 RUNNING),而是
+**日志 mtime 停滞 + checkpoint 已有 3 个 epoch 目录**——满足这两条就可以直接取消并手动接评测。
