@@ -133,3 +133,45 @@ unset HF_HUB_OFFLINE HF_DATASETS_OFFLINE
 ```
 是 config 里这几个字段写成了 int 而非 float,transformers 5.3 只告警不报错,tokenizer/模型均正常加载。
 先记录,不做修改(改 config 会偏离 kzhao2 的既有 checkpoint 条件)。如 canary 数值异常再回头查这里。
+
+## 2026-09-10 运行期观察
+
+### R1. 新故障签名(不在 HANDOFF §6 表里):`rollout_complete` 回调 30s 超时 → 挂死
+**job 13621182(dsv2 icepop s3 @ m13h-2-1)**,05:29 启动,08:31:48 完成 Epoch 2/3 Step 28/29 之后
+**再无任何推进**;日志最后写入 09:37:13,到 11:18 已静默 1h41m,最后的活动是
+`ProxyRolloutServer` 连续清理 stale session(`Cleaned up 57 stale sessions` / `Cleaned up 11 stale sessions`)。
+
+日志里累计 **12 次**:
+```
+[RemoteInfEngine Rank 0] ERROR: Callback to http://<ip>:<port>/callback/rollout_complete
+failed: HTTPConnectionPool(...): Read timed out. (read timeout=30)
+```
+时间分布 05:51 / 06:02 / 06:06 / 06:20 / 06:32 / 07:13 ×2 / 07:19 / 07:33 / 07:50 / 08:02 / 08:26,
+**频率递增**,最后一次(08:26)之后 5 分钟就停止推进。
+
+**与 §6 已知条目的区别**:§6 里的是 `Read timed out (read timeout=600.0)` 和
+`Timeout waiting for key ...update_weights_from_disk`,属**落盘权重重载**路径,已由
+RolloutCallback 7200 / name_resolve 3600 修掉。本条是 **rollout_complete 回调**、超时值 **30 秒**,
+端点和量级都不同,现有的两个超时加长**覆盖不到它**。
+
+**判定为偶发而非配方缺陷**的依据:同一时间窗、同型号节点(m13h-2-2)上的 13621183(kpop s3)
+**一次都没出现**,且已跑到 Epoch 3/3。
+
+**处置**:按"静默失败当失败处理"取消 13621182(当时已烧 5h50m,若放任会占 8 张 H200 到 12h 上限),
+原样重提为 **13626596**。checkpoint 只存到 `epoch1...globalstep57`(3 个 epoch 只有 2 个),
+符合 HANDOFF 对静默失败的判据。
+
+**给 kzhao2 的建议**:这个 30s 回调超时值得加进 §6 表,并考虑把 `rollout_complete` 回调的
+`read timeout` 也调大(与 RolloutCallback 7200 同一量级),或在回调失败时重试而非让 session 变 stale。
+识别方法:**日志 mtime 停滞 + `Train step` 长时间不推进**,而非等 job 状态变化——它会一直是 RUNNING。
+
+### R2. 步速实测(用于判断 12h 限时是否够)
+| job | 节点 | 稳态步速 | 87 步预估 |
+|---|---|---|---|
+| 13621183 kpop s3 | m13h-2-2 (H200) | ~4.0 分/步 | ~6h |
+| 13621182 icepop s3 | m13h-2-1 (H200) | ~3.2 分/步(卡死前) | — |
+| 13621177 kpopfix s1 | dw-1-3 (A100) | ~4.4 分/步 | ~6.4h |
+
+**canary 在 cs-1-1 上测到的 ~9 分/步是异常值**,原因是该节点当时被其他作业占满(mixed 状态)。
+正式 job 落在负载较轻的节点上时,A100 与 H200 差距不大(4.4 vs 4.0),**12h 限时余量充足**,
+不需要调整 `--time`。选节点时应避开 `mixed` 程度高的节点。
