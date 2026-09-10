@@ -326,3 +326,15 @@ suite_q30b_tisvllm_s2	math500	0.7460	500
 suite_q30b_tisvllm_s2	svamp	0.9467	300
 suite_q30b_tisvllm_s2	minerva	0.3493	272
 suite_q30b_tisvllm_s2	olympiad	0.4763	674
+suite_dsv2_tisvllm_s3	gsm8k	0.7240	1319
+suite_dsv2_tisvllm_s3	gsm8k_em	0.7005	1319
+suite_dsv2_tisvllm_s3	math500	0.2480	500
+suite_dsv2_tisvllm_s3	svamp	0.7067	300
+suite_dsv2_tisvllm_s3	minerva	0.0699	272
+suite_dsv2_tisvllm_s3	olympiad	0.0697	674
+suite_q30b_icepopvllm_s2	gsm8k	0.9507	1319
+suite_q30b_icepopvllm_s2	gsm8k_em	0.8544	1319
+suite_q30b_icepopvllm_s2	math500	0.7560	500
+suite_q30b_icepopvllm_s2	svamp	0.9367	300
+suite_q30b_icepopvllm_s2	minerva	0.3088	272
+suite_q30b_icepopvllm_s2	olympiad	0.4703	674
