@@ -210,3 +210,24 @@ sbatch --export=ALL,EVAL_PATH="$CK/$E",EVAL_TAG="suite_dsv2_kpopvllm_s3" rl/eval
 
 **监控要点**:识别这种情况的判据不是 job 状态(一直是 RUNNING),而是
 **日志 mtime 停滞 + checkpoint 已有 3 个 epoch 目录**——满足这两条就可以直接取消并手动接评测。
+
+### R4. 重提 job 前必须清掉上一次留下的陈旧 checkpoint
+`examples/math/gsm8k_icepop.yaml` 里 `recover.mode: disabled`,所以**重提的 job 不会 resume**,
+而是从头跑、覆盖同名的 `epoch0*`/`epoch1*` 目录。
+
+**陷阱**:如果重提的 job 在中途失败(比如只写完 epoch0),checkpoint 目录里就会是
+**新的 epoch0 + 上一次运行遗留的 epoch1**,而 `cells.sbatch` 末尾取的是
+`ls "$CK" | grep "^epoch" | tail -1`,会选中那个**陈旧的 epoch1** 去评测,
+产出一行数值看似正常、实际来自上一次运行的结果——属于 HANDOFF §6 里"评测行数值异常"那一类,
+而且**比塌缩更难发现**,因为数字不会明显离谱。
+
+**处置**:重提之前(job 仍为 PENDING 时)清空该 trial 的 checkpoint 目录:
+```bash
+CK=$RLROOT/experiments/checkpoints/$USER/kt-<cell>/<method>vllm-s<seed>/default
+squeue -j <newjob> -h -o "%T" | grep -q RUNNING || rm -rf "$CK"/epoch*
+```
+本次对 13626596(dsv2 icepop s3)执行了此清理,删掉了 13621182 留下的
+`epoch0epochstep28globalstep28`(07:10)和 `epoch1epochstep28globalstep57`(08:36)。
+
+**给 kzhao2 的建议**:在 `cells.sbatch` 训练开始前加一句清理,或者把评测链改成按
+**本次 job 的 globalstep** 选目录而不是 `tail -1`,可以从根上消除这个风险。
