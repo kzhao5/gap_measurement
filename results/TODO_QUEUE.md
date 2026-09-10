@@ -1,6 +1,6 @@
 # TODO 队列(kzhao2 已取消,交由 tianruny 账号跑)
 
-生成时间:2026-09-09。共 43 个组合。这些 job 在 kzhao2 账号上已 `scancel`,**不会**再产出结果。
+生成时间:2026-09-09。共 44 个组合。这些 job 在 kzhao2 账号上已 `scancel`,**不会**再产出结果。
 tianruny 侧按 `HANDOFF.md` 的预检 + canary 通过后,逐个提交下表组合;每完成一个,在 `results/OWNERSHIP_tianruny.md` 记一行。
 
 提交模板(dsv2 用 `vllm:d4p1t1` + 12h;q30b 用 `vllm:d2p1t2` + 30h;`ours` 臂加 LAMP):
@@ -63,8 +63,10 @@ sbatch --time=30:00:00 --partition=m13h --qos=gpu \
 | 41 | dsv2 | tis | 1 | TODO |
 | 42 | q30b | nocorr | 3 | TODO |
 | 43 | q30b | tis | 3 | TODO |
+| 44 | q30b | fullis | 3 | TODO |
 
-> 2026-09-09 追加:上面最后 3 行是 kzhao2 侧取消的 job(q30b nocorr/tis s3 在 cs 分区注定超时;dsv2 tis s1 的 vLLM 引擎卡死)。**q30b 不要提交到 cs 分区**:cs 的 QOS 上限 24h,而 A100 上每步约 18-22 分钟、跑完需 26h+,必然超时;q30b 只用 m13h(H200,约 15h)或 dw(dw87 允许 3 天)。
+
+> 2026-09-09 追加:上面最后 4 行是 kzhao2 侧取消的 job(含 q30b fullis s3)(q30b nocorr/tis s3 在 cs 分区注定超时;dsv2 tis s1 的 vLLM 引擎卡死)。**q30b 不要提交到 cs 分区**:cs 的 QOS 上限 24h,而 A100 上每步约 18-22 分钟、跑完需 26h+,必然超时;q30b 只用 m13h(H200,约 15h)或 dw(dw87 允许 3 天)。
 
 ## 关于旧结果行(2026-09-09 处理)
 `results/eval_suite.tsv` 里 27 个不含 `vllm` 的 dsv2/q30b 旧 tag 已移入 `results/eval_suite_archive_pre_fixes.tsv`(它们分别是 DeepSeek 分词器 bug 期和 Qwen3 thinking 期的无效结果,**不要用于任何分析**)。有效结果一律带 `vllm`;两个 `*_base` 行有效并保留。
