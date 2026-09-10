@@ -231,3 +231,57 @@ squeue -j <newjob> -h -o "%T" | grep -q RUNNING || rm -rf "$CK"/epoch*
 
 **给 kzhao2 的建议**:在 `cells.sbatch` 训练开始前加一句清理,或者把评测链改成按
 **本次 job 的 globalstep** 选目录而不是 `tail -1`,可以从根上消除这个风险。
+
+### R5.(重要)评测全部失败于 FIPS —— gap venv 被 uv 重新装回了 opencv
+**症状**:两个评测 job(13627007、13632168)都在**加载完 5 个数据集之后**立刻崩,
+`sacct` 显示 `FAILED / ExitCode 6:0`,日志末尾:
+```
+crypto/fips/fips.c:154: OpenSSL internal error: FATAL FIPS SELFTEST FAILURE
+slurm_script: line 14: ... Aborted (core dumped) OPENSSL_CONF=/dev/null python rl/eval_suite.py ...
+```
+崩的位置是 `eval_suite.py` 里数据集加载之后紧接着的
+`from math_verify ... / from transformers ... / from vllm import LLM`。
+
+**根因(我的疏漏)**:两个 venv 的安装口径不一致。
+- AReaL venv 我用了 `--no-deps`(当初为绕开 outlines/outlines-core 的自相矛盾),所以严格按 freeze 装;
+- **gap venv 我用了正常依赖解析** `uv pip install -r env/requirements-gap.txt`,
+  于是 uv 按 vllm 0.26 的依赖把 **`opencv-python-headless==5.0.0.93` 拉了进来**。
+
+`env/requirements-gap.txt` 里**没有** opencv(kzhao2 的 freeze 是卸掉之后导出的),
+所以逐包核对时它表现为"多出 1 个包"——我当时只看了"缺失=0、版本不符=0",
+**没看多出项**,漏掉了。
+
+**注意 `OPENSSL_CONF=/dev/null` 拦不住它**:`eval_suite.sbatch` 第 14 行已经带了这个环境变量,
+仍然崩溃——opencv 自带的 libcrypto 会做自己的 FIPS 自检,和 OPENSSL_CONF 无关。
+
+**HANDOFF §2 预检覆盖不到这个**:第 2 条 opencv 检查是在 **AReaL venv** 里做的
+(`cd ~/AReaL && python -c "import cv2"`),而**评测跑在 gap venv**(`rl/eval_suite.sbatch`
+里 `cd $HOME/gap_measurement && source .venv/bin/activate`)。两个 venv 是独立的,
+AReaL 干净不代表 gap 干净。
+
+**修法**:
+```bash
+cd /tmp && uv pip uninstall --no-config --python ~/gap_measurement/.venv/bin/python opencv-python-headless
+```
+修完两个 venv 均与各自 freeze 逐包一致(缺失 0 / 多出 0 / 版本不符 0)。
+两个评测已重提(13633843 kpop s3、13633844 kpopfix s1),立即开始运行。
+
+**给 kzhao2 的建议**(两条,都很便宜):
+1. §2 预检的 opencv 检查**要在两个 venv 里各做一次**,建议改成:
+   ```bash
+   for v in ~/AReaL/.venv ~/gap_measurement/.venv; do
+     $v/bin/python -c "import cv2" 2>&1 | grep -q ModuleNotFound \
+       && echo "$v opencv absent OK" || echo "!! $v 需卸载 opencv"
+   done
+   ```
+2. TRANSFER §7 应写明 **gap venv 也要用 `--no-deps`**,否则 uv 会按 vllm 的依赖把 opencv 装回来。
+   并且核对时**必须同时看"多出项"**,不能只看缺失和版本。
+
+### R6. 排队:m13h 拥堵时可迁到 dw(HANDOFF §4 允许)
+13626596(dsv2 icepop s3)与 13621184(q30b seqtis s1)在 m13h 的预计启动是
+**2026-09-13 05:18 / 09-12 18:00**(两三天后)。用
+`scontrol update JobId=<id> Partition=dw QOS=dw87` 迁到 dw 后,预计启动变成 **当天 19:59**。
+
+依据:dw MaxTime 7 天(容得下 q30b 的 30h);SIGMA_TIS 记录过 **q30b 在 dw/A100 上跑过**
+(`q30b kpop s2,dw/A100`,~9 min/step → 87 步 ≈13h);且**迄今两次挂起都在 m13h,dw 零次**,
+迁过去对可靠性反而更好。
