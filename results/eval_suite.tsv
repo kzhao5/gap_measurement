@@ -374,3 +374,9 @@ suite_dsv2_fp16vllm_s1	math500	0.2440	500
 suite_dsv2_fp16vllm_s1	svamp	0.7200	300
 suite_dsv2_fp16vllm_s1	minerva	0.0956	272
 suite_dsv2_fp16vllm_s1	olympiad	0.0608	674
+suite_dsv2_icepopvllm_s3	gsm8k	0.7187	1319
+suite_dsv2_icepopvllm_s3	gsm8k_em	0.6914	1319
+suite_dsv2_icepopvllm_s3	math500	0.2460	500
+suite_dsv2_icepopvllm_s3	svamp	0.7167	300
+suite_dsv2_icepopvllm_s3	minerva	0.0699	272
+suite_dsv2_icepopvllm_s3	olympiad	0.0623	674
