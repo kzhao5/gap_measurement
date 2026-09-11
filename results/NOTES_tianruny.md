@@ -285,3 +285,44 @@ cd /tmp && uv pip uninstall --no-config --python ~/gap_measurement/.venv/bin/pyt
 依据:dw MaxTime 7 天(容得下 q30b 的 30h);SIGMA_TIS 记录过 **q30b 在 dw/A100 上跑过**
 (`q30b kpop s2,dw/A100`,~9 min/step → 87 步 ≈13h);且**迄今两次挂起都在 m13h,dw 零次**,
 迁过去对可靠性反而更好。
+
+### R7. 并发过多导致 disk 权重同步被 I/O 拖垮 → 必然超时(需取消重提)
+**背景**:`weight_update_mode: disk` 下,每个 job **每一步**都要把约 30GB 权重落盘再由 4 个
+推理 rank 重载。5 个 dsv2/q30b job 同时在 dw 上跑时,NFS 带宽成为瓶颈。
+
+**实测(2026-09-10 18:18,5 个 job 并发)**,`Loading weights from disk done in Xs`:
+
+| job | 节点 | 单次重载 |
+|---|---|---|
+| fp16 s1 | dw-1-2 | **152s** |
+| ours s1 | dw-1-1 | **259s** |
+| q30b seqtis s1 | dw-1-3 | **408s** |
+| **gspo s1** | **dw-2-3** | **1354–1446s** |
+
+对照:单 job 独占时(13621183)是 **231s**。所以并发确实普遍拖慢,但 **gspo 所在的 dw-2-3
+严重得多(9 倍)**,而且是**双峰**的——同一个 job 里既有 122–141s 也有 1270–1446s,
+从第 13 步起持续落在慢峰。
+
+**后果**:gspo 的步速从 3 分钟/步恶化到 **19–24 分钟/步**。按此推算,剩余 72 步需要约 23 小时,
+而 TimeLimit 只到 02:16;即使其他 job 在 22:00 前后结束、争用缓解,它也要到 02:45 才完成,
+**仍然会 TIMEOUT**。
+
+**注意:用户无法延长 TimeLimit**——`scontrol update JobId=... TimeLimit=20:00:00` 返回
+`Access/permission denied`(只能调小,不能调大)。所以**发现会超时时,唯一的选择是取消重提**,
+拖到 TIMEOUT 只会白烧更多机时。
+
+**处置**:取消 13621179(已烧 4h04m,0 个 epoch),重提为 13639468 并
+`--exclude=dw-2-4,dw-2-3` 避开慢节点。释放的 dw-2-3 立刻被排队的评测 job 用上。
+
+**识别方法**(比等 TIMEOUT 早得多):
+```bash
+# 步速异常时,直接看权重重载耗时
+grep -oE "Loading weights from disk done in [0-9.]+s" $LOG | tail -4
+```
+正常 ~130–260s;超过 **1000s** 基本可判定该 job 会超时。
+
+**给 kzhao2 的建议**:
+1. 同一分区上**并发的 dsv2/q30b job 不宜超过 3–4 个**,否则 disk 同步互相拖累;
+   race 式抢占多分区比在单分区堆满更划算。
+2. `cells.sbatch` 可考虑加一个早期自检:若前 5 步的平均重载耗时 × 剩余步数 > 剩余墙钟时间,
+   直接主动退出并打印提示,避免白跑到 TIMEOUT。
