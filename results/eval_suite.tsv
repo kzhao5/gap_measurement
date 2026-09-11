@@ -380,3 +380,9 @@ suite_dsv2_icepopvllm_s3	math500	0.2460	500
 suite_dsv2_icepopvllm_s3	svamp	0.7167	300
 suite_dsv2_icepopvllm_s3	minerva	0.0699	272
 suite_dsv2_icepopvllm_s3	olympiad	0.0623	674
+suite_dsv2_gspovllm_s1	gsm8k	0.7346	1319
+suite_dsv2_gspovllm_s1	gsm8k_em	0.7066	1319
+suite_dsv2_gspovllm_s1	math500	0.2600	500
+suite_dsv2_gspovllm_s1	svamp	0.7033	300
+suite_dsv2_gspovllm_s1	minerva	0.0478	272
+suite_dsv2_gspovllm_s1	olympiad	0.0564	674
