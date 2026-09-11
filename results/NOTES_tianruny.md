@@ -326,3 +326,42 @@ grep -oE "Loading weights from disk done in [0-9.]+s" $LOG | tail -4
    race 式抢占多分区比在单分区堆满更划算。
 2. `cells.sbatch` 可考虑加一个早期自检:若前 5 步的平均重载耗时 × 剩余步数 > 剩余墙钟时间,
    直接主动退出并打印提示,避免白跑到 TIMEOUT。
+
+### R8. 第三次挂起:CIS 臂在 epoch 边界静默停止(dw 节点,推翻"只有 m13h"的猜测)
+**job 13621181(dsv2 ours/CIS s1 @ dw-1-1)**,时间线:
+```
+18:12:53  权重重载完成(258-259s,正常量级)
+18:14:45  epoch0 checkpoint 落盘(30G,完整)
+18:17:33  vLLM engine 最后一条日志(还在生成)
+18:17:53  最后一次文件写入
+之后 42 分钟完全静止;job 仍为 RUNNING,剩余 8h33m
+```
+**故障签名全为 0**:Read timed out 0、stale session 0、EngineCallError 0、Traceback 0。
+
+**决定性判据不是日志静默,而是"是否还在写文件"**(日志静默会被 R7 的慢重载混淆——
+单次重载可达 23 分钟):
+```bash
+# 挂死的 job:18:15 之后零写入
+find $EXPROOT -path "*oursvllm-s1*" -newermt "18:15" -printf "%TH:%TM  %p\n"
+# 正常的 job:持续在写 weight_update_vN/model.safetensors
+find $EXPROOT -path "*fp16vllm-s1*" -newermt "18:50" -printf "%TH:%TM  %p\n"
+# 且 name_resolve/<trial>/update_weights_from_disk/<N> 会不断出现新序号
+```
+本次对照结果:CIS job 18:17:53 之后零写入、name_resolve 无任何条目;
+同期 fp16 正在写 `weight_update_v40/model.safetensors`(19:00:03),
+icepop / q30b 的 name_resolve 也都有新条目。三个兄弟 job 全部正常,只有它停了。
+
+**修正之前的观察**:R1、R3 两次挂起都在 m13h,我当时记的"两次挂起都在 m13h,dw 零次"
+**已被本次推翻**——本次在 **dw-1-1**。所以挂起**与分区无关**,是 AReaL + vLLM + disk 权重同步
+这条链路本身的偶发问题。
+
+**发生率值得注意**:到目前为止 8 个 job 里出现 3 次挂起(13621182 训练中、13621183 收尾、
+13621181 epoch 边界),约 37%。三次的共同点是:**无任何错误输出、job 状态一直是 RUNNING**,
+只能靠外部探测发现。
+
+**处置**:取消(已烧 3h27m,1/3 epoch),按 R4 清掉 `epoch0*` 与 `weight_update_*`
+(否则重提后若中途失败会评到陈旧 checkpoint),重提为 13639641,LAMP=15.0 已核对。
+
+**给 kzhao2 的建议**:这条链路需要一个**看门狗**。最简单的实现是在 trainer 侧每步更新一个
+心跳文件,外部脚本发现心跳超过 N 分钟未更新就自动 scancel + 重提;
+只靠 Slurm 状态和日志都发现不了(状态恒为 RUNNING,日志静默与慢 I/O 无法区分)。
