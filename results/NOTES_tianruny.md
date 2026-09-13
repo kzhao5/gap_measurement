@@ -539,3 +539,38 @@ Exception: Capture cuda graph failed: FlashAttention on Ampere/Ada cards only
 
 两条路若都可行,优先用 A100(dw 分区容量远大于 m13h,E3 需要 9+ 个 run);
 若仅 H200 可行,则 E3 的 KV-cache 路线必须排在 m13h,吞吐会成为瓶颈。
+
+### R16. ✅ E3 跑通:**H200(sm90)+ `attention_backend=triton`**,CUDA graph 保持开启
+`13671240`(cell A / Qwen1.5-MoE / `kv_cache_dtype=fp8_e4m3`)在 m13h-1-2 上
+**`Train step 1/87 done`**,首步 `task_reward/avg=0.6982`、`seq_len/avg=298.2`,
+零错误。这是 E3 第一次真正进入训练。
+
+**三条路的最终对照**(全部 nocorr / fp8_e4m3):
+
+| Job | 硬件 | 配置 | 结果 |
+|---|---|---|---|
+| 13664168 | A100 | 默认 fa3 | ✗ `FlashAttention on Ampere/Ada only supports fp16/bf16` |
+| 13671215 | A100 | triton | ✗ 同上(triton 已生效但内核层仍拒绝) |
+| 13671239 | A100 | triton + 关 cuda graph(mem 0.8) | ✗ 门槛已过(该错 0 次)但 `code -9` OOM |
+| 13671272 | A100 | triton + 关 cuda graph(mem 0.6) | 验证中 |
+| **13671240** | **H200** | **triton(graph 开)** | **✅ 训练正常** |
+
+**结论**:fp8 KV 的拒绝只发生在 **Ampere 的 CUDA graph 捕获路径**上;Hopper 无此限制,
+且无需关闭 CUDA graph、无需降显存,是最干净的路线。
+
+**据此的决定**:新增的 dose 档位**全部排在 m13h(H200)**,不与 A100 混用。
+理由是跨档位可比性——dose-response 曲线要求只有 `kv_cache_dtype` 一个变量在变,
+若各档跑在不同硬件/不同 graph 设置上,曲线就不可解释。
+代价是吞吐:m13h 只有 4 个节点(dw 有 7),E3 的 9 个 run 会排得比较久。
+
+已提交(均 H200 + triton):`fullis`/`ours` 的 fp8_e4m3 两臂,以及 fp4_e2m1 的 nocorr 探针。
+
+**遗留的可比性问题(需 kzhao2 回答)**:既有的 bf16 基线档与 §5.4 的 fp8_e5m2 档
+当初跑在什么硬件、什么 attention backend 上?若与 H200+triton 不一致,
+这条 dose 曲线的前两个点就不能直接并入。
+
+### 附:一个读数陷阱
+用 `grep` 跨该 trial 目录下的多个日志文件(`main.log` / `merged.log` / `rollout.log`)
+取指标时,同一行会被重复计入,表现为"连续几步数值完全相同"。
+**取训练指标只应从 `main.log` 单读**。我第一次读 H200 的结果时就被这个骗过,
+误以为是 3 步、且怀疑训练卡住。
