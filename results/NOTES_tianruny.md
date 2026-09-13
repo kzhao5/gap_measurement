@@ -671,3 +671,37 @@ checkpoint 去比对,不能用历史结果推断。
 **给 kzhao2 的建议**:`eval_suite.py` 的 `_base` 映射应补上 `kt-dose`/`kt-fp8` 等使用
 Qwen1.5-MoE 的实验,或者干脆把 `eval_gsm8k.py` 也改成同一套 base-tokenizer 逻辑,
 避免两条评测路径的修复状态不一致。
+
+### R19 结论:cell A 的 tokenizer 隐患**已排除,无需修改 `eval_gsm8k.py`**
+`13671240` 的第一个 epoch 落盘后(`epoch0epochstep28globalstep28`,15:49)实测比对:
+
+| 项 | base 快照 | checkpoint |
+|---|---|---|
+| tokenizer_class | `Qwen2Tokenizer` | `Qwen2Tokenizer` |
+| 词表大小 | 151646 | 151646 |
+| 编码 id | — | **一致** |
+| 解码文本 | — | 正常,**无 `Ġ` 伪影** |
+| chat template | — | **一致** |
+
+**结论**:SIGMA_TIS ⑭ 那个 bug **确实是 DeepSeek 特有的**,不影响 Qwen1.5-MoE。
+`eval_gsm8k.py` 第 14 行直接用 checkpoint tokenizer 是安全的,E3 的评测链**不需要改动**。
+这也解释了为什么 `eval_suite.py` 的 `_base` 映射当初只列 `kt-dsv2` 与 `kt-q30b`——
+判断是对的,不是遗漏。
+
+**因此撤回 R19 里给 kzhao2 的那条建议**(不必把 `_base` 映射扩到 Qwen1.5-MoE 实验,
+也不必改 `eval_gsm8k.py`)。当时以为触发条件是 transformers 5.x 版本而非模型,
+实测表明模型侧的 byte-level BPE 实现才是关键:Qwen2Tokenizer 在 transformers 5.14.1 下
+往返正常,DeepSeek 的则不然。
+
+### R20. 读日志的分工:训练指标与引擎指标在不同文件
+做健康检查时我用 `main.log` 一把抓,结果权重重载耗时样本数为 0,**等于静默失去了 R7 那道
+超时预警**。实际分工是:
+
+| 指标 | 所在文件 |
+|---|---|
+| `task_reward/avg`、`seq_len/avg`、`Train step N/M done` | **`main.log`** |
+| `Loading weights from disk done in Xs` | **`rollout.log`**(与 `merged.log`) |
+
+与 R16 附录那条(跨文件 grep 会重复计数)合起来才完整:**该分文件读的不能合并,
+该单文件读的不能跨文件**。`13671240` 用正确文件复测的结果:重载中位 **260s**、最慢 283s,
+远低于 1000s 预警线;步速 4.4 分钟/步无劣化,87 步约 6.6 小时,12h 限时余量充足。
