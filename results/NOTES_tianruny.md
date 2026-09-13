@@ -514,3 +514,28 @@ Exception: Capture cuda graph failed: FlashAttention on Ampere/Ada cards only
 不能用 dw 的 A100。这同时带出一个**必须向 kzhao2 确认的可比性问题**:
 既有的 §5.4 `fp8_e5m2` 数据点当初跑在什么硬件上?若它在 Hopper 上,新档位也应在 Hopper;
 若它在 A100 上,那它当时能跑通的机制需要重新解释(可能是 e5m2 被自动切 triton 后走了不同内核)。
+
+### R15. `disable_cuda_graph=true` 确实绕过了 Ampere 的内核门槛(但随后 OOM)
+承接上一节的更正。第三轮探针 `13671239`(A100 + `attention_backend=triton`
++ `++sglang.disable_cuda_graph=true`)结果:
+
+- **`FlashAttention on Ampere/Ada` 错误出现 0 次** —— 内核层门槛确实被绕过了,
+  说明该拒绝只发生在 **CUDA graph 捕获路径**上,并非 fp8 KV 在 sm80 上完全不可用;
+- 但 job 仍 `FAILED`(10:58),死因变成
+  `Inference server process exited with code -9 before becoming healthy`
+  —— **-9 = SIGKILL,典型的 OOM 被杀**,而非断言失败;
+- 当时 `mem_fraction_static: 0.8`(yaml 默认)。关掉 CUDA graph 会失去 graph 复用带来的
+  显存与调度优化,0.8 的静态占比不再合适。
+
+**处置**:重提 `13671272`,同配置但 `++sglang.mem_fraction_static=0.6`。
+
+**方法论要点**:失败信息从"断言拒绝"变成"被 SIGKILL",是**路线可行性的正向信号**,
+不应与前两轮的失败等同看待。判断一次重试是否有进展,要看**失败模式是否改变**,
+而不只看是否仍为 FAILED。
+
+**同时在验证的另一条路**:`13671240`(**H200 / sm90** + triton,CUDA graph 保持开启)
+—— 目前零错误,已推进到 `RolloutController INFO: Proxy servers initialized`,
+比任何一次 A100 尝试都远。**尚未出第一个训练步,结论待定**,不在此下断言。
+
+两条路若都可行,优先用 A100(dw 分区容量远大于 m13h,E3 需要 9+ 个 run);
+若仅 H200 可行,则 E3 的 KV-cache 路线必须排在 m13h,吞吐会成为瓶颈。
