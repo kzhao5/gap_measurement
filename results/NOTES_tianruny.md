@@ -479,3 +479,38 @@ A100(sm80)可用。所以 **4 档(bf16 / fp8_e4m3 / fp8_e5m2 / fp4_e2m1)在现�
 若调用方也用 `S` 存 sbatch 路径,`source` 之后 `sbatch "$S"` 会指向一个目录,
 报 `sbatch: error: Batch script is empty!`。**排查时容易误以为脚本被写坏**。
 建议把该文件里的局部变量改名(如 `_KTS`)或加 `local`/`unset`。
+
+### R12/R13 更正(2026-09-13):`attention_backend=triton` **不足以**在 Ampere 上跑 fp8 KV
+上一节我写"显式设 triton 即可,4 档在 A100 全部可跑"——**这一点被后续实验证伪,特此更正**,
+以免按原结论去排实验。
+
+带 `++sglang.attention_backend=triton` 重提后(job 13671215),`config.yaml` 里确认
+`attention_backend: triton` 与 `kv_cache_dtype: fp8_e4m3` **都已生效**,但仍然失败:
+```
+Exception: Capture cuda graph failed: FlashAttention on Ampere/Ada cards only
+                                      supports fp16 and bf16 data type
+```
+
+**为什么后端开关管不了它**:
+- 该错误串在 `site-packages` 里(含 `.so` 扫描)**完全搜不到**,`triton_backend.py` 内也没有
+  任何 fp8 相关代码;
+- traceback 的末端是 `torch/_ops.py:841 __call__`,`cuda_graph_runner.py:655` 只是把
+  `self.capture()` 抛出的 `RuntimeError` 包装成 "Capture cuda graph failed";
+- 说明这是**编译扩展(FA3 / sgl-kernel)在内核层面拒绝 fp8 张量**,与 Python 层选哪个
+  attention backend 无关。`get_attention_backends()` 确实会把 `attention_backend` 传播到
+  prefill/decode 两侧,所以不是传播漏掉的问题。
+
+**仍然成立的部分**:R12 里"sglang 只对 `fp8_e5m2` 自动把 fa3 切成 triton、对 `fp8_e4m3` 不切"
+这条源码事实无误;R13 里 fp4 的 `KV4 MHA expects attention_backend to be one of [...]` 也确实
+是后端断言。只是**修掉后端之后还有第二道内核层门槛**。
+
+**正在验证的两条路**(各投一个探针,均为 nocorr / fp8_e4m3):
+1. `13671239` A100 + triton + `++sglang.disable_cuda_graph=true` —— 错误发生在 graph 捕获,
+   跳过捕获是否能绕开;
+2. `13671240` **H200(sm90)** + triton —— 错误信息字面只点名 "Ampere/Ada",
+   Hopper 上 FA3 支持 fp8,大概率可用。
+
+**若确认是硬件门槛,对 E3 的影响**:KV-cache 路线必须在 **Hopper(m13h H200 / cs2 H100)**上跑,
+不能用 dw 的 A100。这同时带出一个**必须向 kzhao2 确认的可比性问题**:
+既有的 §5.4 `fp8_e5m2` 数据点当初跑在什么硬件上?若它在 Hopper 上,新档位也应在 Hopper;
+若它在 A100 上,那它当时能跑通的机制需要重新解释(可能是 e5m2 被自动切 triton 后走了不同内核)。
