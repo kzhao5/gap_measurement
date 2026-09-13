@@ -1,0 +1,120 @@
+# 需要 kzhao2 侧完成的事项(tianruny 整理,2026-09-12)
+
+背景:E3(受控噪声注入 dose–response)已由 tianruny 提交开跑,见文末。
+**E1/E2/E4 被下面 4 项阻塞**,都不是 tianruny 能单方面解决的。
+
+---
+
+## A. 【需要你确认口径】μ = 7.07 在仓库里找不到
+
+`CIS_待补实验.md` 的 E2 整段论证建立在"MoE 的 μ = 7.07,远超舍入噪声能产生的量级,
+所以是尾巴撑起来的"。但仓库里的实测值是:
+
+```
+results/paper/paper_numbers.json
+  E_k_moe   = 1.0000087      ← 应该就是 μ = E[k] = E[e^ε]
+  E_k_dense = 1.0000072
+  n_moe     = 12,293,115
+```
+
+`7.07` 在整个仓库里只出现过一次:`results/s0closure/report_moe.json` 的
+`delta_R2 = 7.0797e-05`,与 μ 无关。
+
+**为什么这条必须先定**:μ ≈ 1.0000087 ⟹ `σ_ε² ≈ 1.7e-5`、`σ_ε ≈ 0.0042`,
+**完全落在 bf16 舍入噪声的量级内**。若如此,E2 的舍入模型是**直接对上的**,
+不需要文档里设计的"两段式(主体对上 / 重尾没对上)"免责写法;而重尾的证据
+应由 `ξ₊`(dense 0.066 vs MoE 0.491,仓库中已确认)和硬路由翻转富集来承担,
+与 μ 是两个独立的量。
+
+请确认 7.07 是:(a) 论文里另一个量(如 `E[e^{2ε}]`、某截断子集、Figure 2 某个 α 处的读数)、
+(b) 笔误、还是 (c) 仓库里的 `E_k_moe` 算错了。tianruny 看不到 Overleaf 正文,无法判断。
+
+---
+
+## B. 【需要你提供数据】原始测量 parquet 在 tianruny 账号里不存在
+
+- `DATA_ROOT`(`~/nobackup/autodelete/gap_measurement`)是空的,**0 个 parquet**。
+- `/home/kzhao2` 是 700,`Permission denied`,拿不到你那份。
+- E1(测 δ)、E2(算 μ)、E4(Figure 1 双图)全部依赖它。
+
+**两个选项,请选一个**:
+1. 按 TRANSFER §7 第 6 条走 login 节点 /tmp 中转,把那 430MB 原始测量 parquet 传过来;
+2. 或者告诉 tianruny 直接重跑测量。重跑是可行的——`data/prompts_math.jsonl`(2500 条)
+   还在,`rl/measure.sbatch` 完整,且 **Qwen1.5-MoE-A2.7B-Chat 与 Qwen1.5-14B-Chat
+   两个模型 tianruny 已经下载好了**(共 57GB)。E1 只需要 200–500 条序列,
+   比现有 12.3M token 的规模小两个数量级,4 卡几十分钟即可。
+
+---
+
+## C. 【需要你改代码,或授权 tianruny 改】E1 的 δ dump
+
+`src/gen_vllm.py` 目前**只存被采样 token 的 logprob**:
+```
+docstring 第 4–5 行:logp_infer is read from the sampling step itself
+                    (SamplingParams.logprobs=0)
+输出 schema(第 387–396 行):traj_id / prompt_id / pos / token_id / logp_infer
+                            (+ route_infer / margin_infer)
+```
+E1 要的是**两个引擎的完整 pre-softmax logit 向量相减**,现在这条路径上没有。
+
+**好消息是改动量不大**:
+- 推理侧:`gen_vllm.py` 里**已经有** `GPUModelRunner.execute_model` 的包装器
+  (第 170–186 行,原本用于抓 router logits),同一模式可以复用来抓最终 logits。
+- 训练侧:`recompute_train.py` **已经拿到了完整的 `[T, V]` logits**
+  (第 177 行 `sub = logits[r, rows].float()`),只是 gather 完就丢了,不丢即可。
+- 存储建议:**只存 δ = logit_infer − logit_train 的差值**(一个向量而不是两个),
+  V≈150k × float32,500 序列 × 若干位置约十几 GB,快盘放得下。
+
+tianruny 目前遵守 HANDOFF 的"不改配方/yaml/算子参数",所有本地化都刻意绕开了仓库代码。
+**请明确:这个改动由你做,还是授权 tianruny 做。**
+
+---
+
+## D. 【建议你合并的 bug 修复】`rl/fp8.sbatch` 的评测链会评错目录
+
+```bash
+# rl/fp8.sbatch 倒数第 2 行(现状):
+E=$(ls "$CK" 2>/dev/null | tail -1)
+
+# rl/cells.sbatch 的正确写法:
+E=$(ls "$CK" 2>/dev/null | grep "^epoch" | tail -1)
+```
+`fp8.sbatch` 少了 `grep "^epoch"`,会选中 `weight_update_v*` 目录去评测——
+正是 HANDOFF §6 里"评测行数值≈2%/空串"那一类故障。tianruny 的 E3 脚本
+(`env_local/dose.sbatch`,未改仓库)已修正此处。
+
+**另外一个路径不一致**(不影响正确性,但会让新账号困惑):
+`analysis/build_dataset.py` 输出到 `DATA_ROOT/analysis/tokens_{arch}.parquet`,
+而 `analysis/paper_zb.py` 读的是 `/home/kzhao2/gap_measurement/results/tokens_{ARCH}.parquet`,
+中间有一个未文档化的拷贝步骤。
+
+`analysis/` 下 **17 个脚本硬编码 `/home/kzhao2`**(含 E4 需要的 `key_figure.py`、
+`paper_render.py`、`paper_zb.py`),TRANSFER §7 给的 sed 一行可解,但目前仓库里还没改。
+
+---
+
+## E. 【FYI】E3 已由 tianruny 提交,不需要你做
+
+已提交 4 个 job(cell A / Qwen1.5-MoE / sglang,与现有 FP8 点同源):
+
+| JobID | 档位 | 方法 | 说明 |
+|---|---|---|---|
+| 13664170 | fp8_e4m3 | ours(λ₊=2.3 未重标) | |
+| 13664168 | fp8_e4m3 | nocorr | |
+| 13664169 | fp8_e4m3 | fullis(exact ratio) | |
+| 13664171 | **fp4_e2m1** | nocorr | **探针**,先验证硬件支持再补另外两个 |
+
+**只需要跑 2 档而不是 3–4 档**:档 0(bf16)和档 2(fp8_e5m2)在 SIGMA_TIS /
+MASTER_REPORT 里已有 cell A seed 1 的 6 方法完整数据,直接并进曲线即可。
+
+**不需要写代码**:sglang 的 `kv_cache_dtype` 支持
+`auto / fp8_e5m2 / fp8_e4m3 / bf16 / fp4_e2m1`,4 档全覆盖;cell A 默认后端
+本来就是 `sglang:d4p1t1`(yaml 第 22 行)。
+
+**fp4 的风险**:sglang 帮助文本只说要求 CUDA 12.8+ / PyTorch 2.8+(我们的
+torch 2.9.1+cu129 满足),**未说明硬件门槛**;mxfp4 通常需要 Blackwell(sm100),
+而集群可用的是 A100(sm80)/ H200(sm90)。所以只投了 1 个探针。
+
+注:tianruny 侧运行期发现的 6 类基建问题(约 50% 静默挂起及其判别法、
+disk 同步 I/O 拖垮、重提前需清陈旧 checkpoint 等)已写在
+`results/NOTES_tianruny.md` 的 R1–R11,不在此重复。
