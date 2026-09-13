@@ -1,7 +1,7 @@
 """Dump math RL prompts (DAPO-Math-17k) to a jsonl for the generation stage.
 
 Run on the login node with the AReaL venv (has datasets + internet/cache):
-  /home/kzhao2/AReaL/.venv/bin/python scripts/prep_prompts.py
+  $HOME/AReaL/.venv/bin/python scripts/prep_prompts.py
 """
 
 import json
