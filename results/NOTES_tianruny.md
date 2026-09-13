@@ -631,3 +631,43 @@ fullis 留在 m13h。**不使用 eng**,因为那里只能用 `standby`,可被抢
 (本次又一次重置为 3 天),迁移后必须重新 `scontrol update TimeLimit=12:00:00`。
 另:单个 job 只能带一个 QOS,而 m13h 不接受 `cs`、cs2 不接受 `gpu`,
 **因此无法让一个 job 在 m13h 与 cs2 之间浮动**——只能逐个指定。
+
+### R19. E3 评测链的前提核查(含一个待验的 tokenizer 隐患)
+E3 走的是 `eval_tp.sbatch → rl/eval_gsm8k.py`,**与主表的 `rl/eval_suite.py` 是两条不同的评测路径**,
+因此主表上做过的修复未必覆盖到它。逐项核查:
+
+| 前提 | 结果 |
+|---|---|
+| gap venv 离线加载 `openai/gsm8k`(main/test) | ✅ n=1319 |
+| gap venv 已卸 opencv(否则 FIPS 崩,见 R5) | ✅ |
+| 评测资源 4×A100 / bf16 推理(不涉及 fp8) | ✅ dw 有空闲节点 |
+| **cell A checkpoint tokenizer 是否可用** | ⏳ 待验 |
+
+**待验的隐患**:`eval_gsm8k.py` 第 14 行是
+```python
+tok = AutoTokenizer.from_pretrained(path)     # path = checkpoint
+```
+即**直接用 checkpoint 自带的 tokenizer**;而 `eval_suite.py` 为 SIGMA_TIS ⑭ 那个 bug
+(AReaL 保存的 checkpoint tokenizer 在 eval venv 下 decode 出 `Ġ`、分词不同 → 评测塌到 20%)
+改成了一律用 base 模型快照的 tokenizer。
+
+**但 `eval_suite.py` 的修复只覆盖两个 cell**:
+```python
+_base = {"kt-dsv2": "deepseek-ai--DeepSeek-V2-Lite-Chat", "kt-q30b": "Qwen--Qwen3-30B-A3B"}
+```
+**没有 cell A / Qwen1.5-MoE**,说明当初判断该 bug 是 DeepSeek 特有的。旁证是 cell A 原有的
+33 个 run 本来就用 `eval_gsm8k.py` 评,结果正常(nocorr 55.55 等),没有 20% 那种塌陷。
+
+**为什么仍要验**:cell A 的历史结果产生于更早的环境,而本账号的 gap venv 是
+transformers 5.14.1 重建的。`eval_suite.py` 注释里写的正是 "byte-level BPE wrongly under
+transformers 5.x",**触发条件是 transformers 版本而非模型**。所以必须拿本次 job 真实存下的
+checkpoint 去比对,不能用历史结果推断。
+
+已挂后台任务:`13671240` 的第一个 epoch 落盘后自动比对 base 与 checkpoint tokenizer 的
+`tokenizer_class`、词表大小、编码 id、解码文本(查 `Ġ` 伪影)与 chat template。
+若不一致,则在提交评测前把 `eval_gsm8k.py` 的 tokenizer 改为 base 快照
+(与 `eval_suite.py` 同样的做法),否则 E3 四个档位会产出一批约 20% 的废数字。
+
+**给 kzhao2 的建议**:`eval_suite.py` 的 `_base` 映射应补上 `kt-dose`/`kt-fp8` 等使用
+Qwen1.5-MoE 的实验,或者干脆把 `eval_gsm8k.py` 也改成同一套 base-tokenizer 逻辑,
+避免两条评测路径的修复状态不一致。
