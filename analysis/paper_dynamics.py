@@ -1,3 +1,4 @@
+import os
 """Training-dynamics multi-panel (the signature figure of the TIS/IcePop/KPop line):
 per-step task reward, max |log k| gap, entropy, grad norm, and intervention rate for the six
 main arms (seed 1), parsed from AReaL trial logs; plus held-out-vs-step from epoch checkpoints
@@ -6,7 +7,7 @@ import re, glob, json, os
 import numpy as np, pandas as pd, pyarrow.parquet as pq
 import matplotlib; matplotlib.use("Agg"); import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
-R="/home/kzhao2/nobackup/autodelete/areal_rl"; ROOT="/home/kzhao2/gap_measurement"; PF="/home/kzhao2/icepop-paper/figures"; OUT=f"{ROOT}/results/paper"
+R=os.path.expanduser("~/nobackup/autodelete/areal_rl"); ROOT=os.path.expanduser("~/gap_measurement"); PF=os.path.expanduser("~/icepop-paper/figures"); OUT=f"{ROOT}/results/paper"
 plt.rcParams.update({"font.size": 9, "axes.labelsize": 9.5, "legend.fontsize": 7.5, "xtick.labelsize": 8.5, "ytick.labelsize": 8.5,
                      "figure.dpi": 200, "axes.grid": True, "grid.color": "#e6e6e6", "grid.linewidth": 0.5,
                      "axes.spines.top": False, "axes.spines.right": False, "pdf.fonttype": 42, "font.family": "DejaVu Sans"})

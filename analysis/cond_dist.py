@@ -27,8 +27,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-ROOT = "/home/kzhao2/nobackup/autodelete/gap_measurement"
-LOCAL = "/home/kzhao2/gap_measurement/results"
+ROOT = os.path.expanduser("~/nobackup/autodelete/gap_measurement")
+LOCAL = os.path.expanduser("~/gap_measurement/results")
 FIGS = os.path.join(ROOT, "analysis", "figs")
 
 BLUE = "#2a78d6"

@@ -1,3 +1,4 @@
+import os
 """Fig 2 (paper): mechanism figure = V9 fan + core-out (|Z|>5) scatter overlay
 + three threshold geometries: TIS constant (log 2), IcePop mask [log 0.5, log 5],
 and ours +lambda_+ * max(1-p, eps0) (one-sided). English labels."""
@@ -5,7 +6,7 @@ import json, os, sys
 import numpy as np, pandas as pd
 import matplotlib; matplotlib.use("Agg"); import matplotlib.pyplot as plt
 ARCH = sys.argv[1] if len(sys.argv) > 1 else "moe"
-ROOT = "/home/kzhao2/gap_measurement"; FIG = f"{ROOT}/results/figs/paper"; OUT = f"{ROOT}/results/paper"
+ROOT = os.path.expanduser("~/gap_measurement"); FIG = f"{ROOT}/results/figs/paper"; OUT = f"{ROOT}/results/paper"
 EPS0, KAPPA, LAM = 5e-3, 5, 2.3
 BLUE, INK, GRAY, ORANGE, RED = "#1f77b4", "#0b0b0b", "#8a8a8a", "#ff7f0e", "#d03b3b"
 plt.rcParams.update({"font.size": 11, "figure.dpi": 150, "axes.grid": True, "grid.color": "#ececec",

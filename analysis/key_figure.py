@@ -22,8 +22,8 @@ font_manager.fontManager.addfont(
 plt.rcParams["font.family"] = ["DejaVu Sans", "Droid Sans Fallback"]
 
 ARCH = sys.argv[1] if len(sys.argv) > 1 else "moe"
-LOCAL = "/home/kzhao2/gap_measurement/results"
-FIGS = "/home/kzhao2/nobackup/autodelete/gap_measurement/analysis/figs"
+LOCAL = os.path.expanduser("~/gap_measurement/results")
+FIGS = os.path.expanduser("~/nobackup/autodelete/gap_measurement/analysis/figs")
 BLUE, INK, GRAY, ORANGE, RED = ("#2a78d6", "#0b0b0b", "#8a8a8a",
                                 "#b0651a", "#d03b3b")
 

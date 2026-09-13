@@ -1,3 +1,4 @@
+import os
 #!/usr/bin/env python
 """A-tier audit E1-E6 (问题.md): martingale mean identity, standardized
 refit, sqrt(pos) deconfounding, per-position identity + autocorrelation,
@@ -32,8 +33,8 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-LOCAL = "/home/kzhao2/gap_measurement/results"
-OUT = "/home/kzhao2/nobackup/autodelete/gap_measurement/analysis"
+LOCAL = os.path.expanduser("~/gap_measurement/results")
+OUT = os.path.expanduser("~/nobackup/autodelete/gap_measurement/analysis")
 Z_PSI = 4.0
 
 

@@ -1,8 +1,9 @@
+import os
 """Fig for Sec 4.1: scale channel (width ∝ 1-p) vs residual channel (B_t independent of 1-p),
 measured on the same tokens: fresh engines -> log k^(0); stale snapshot -> B_t = log k^(29) - log k^(0)."""
 import numpy as np, pandas as pd
 import matplotlib; matplotlib.use("Agg"); import matplotlib.pyplot as plt
-PF="/home/kzhao2/icepop-paper/figures"; OUT="/home/kzhao2/gap_measurement/results/paper"
+PF=os.path.expanduser("~/icepop-paper/figures"); OUT=os.path.expanduser("~/gap_measurement/results/paper")
 KAPPA, ZETA = 5e-3, 5
 BLUE, ORANGE, GRAY, INK = "#1f77b4", "#ff7f0e", "#8c8c8c", "#111111"
 plt.rcParams.update({"font.size": 8.5, "axes.labelsize": 9.5, "legend.fontsize": 7.5, "xtick.labelsize": 8, "ytick.labelsize": 8, "figure.dpi": 200,

@@ -1,3 +1,4 @@
+import os
 """Publication renders: single-panel PDFs (no titles), boxed legends horizontal above the axes,
 identical panel geometry so LaTeX can place (a)(b)(c) side by side at 0.325\linewidth each."""
 import glob, json, os
@@ -6,7 +7,7 @@ import matplotlib; matplotlib.use("Agg"); import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 from matplotlib.ticker import NullFormatter, FixedLocator, FuncFormatter
 from scipy.stats import genpareto
-ROOT="/home/kzhao2/gap_measurement"; PF="/home/kzhao2/icepop-paper/figures"; OUT=f"{ROOT}/results/paper"
+ROOT=os.path.expanduser("~/gap_measurement"); PF=os.path.expanduser("~/icepop-paper/figures"); OUT=f"{ROOT}/results/paper"
 os.makedirs(PF, exist_ok=True)
 EPS0, KAPPA, LAM = 5e-3, 5, 2.3
 BLUE, ORANGE, GRAY, RED, INK = "#1f77b4", "#ff7f0e", "#8c8c8c", "#c8102e", "#111111"
@@ -87,7 +88,7 @@ dual_panel([("",d1)], c, "dualscale_a", 3)
 dual_panel([("fresh",d2[d2.src=="paired fresh (lag 0)"]),("stale",d2[d2.src=="paired stale (lag 29)"])], cf, "dualscale_b", 3)
 dual_panel([(s.split(" (")[0].replace("champion train ",""),d2[d2.src==s]) for s in ["champion train early (c=0.61)","champion train mid (c=1.28)","champion train late (c=1.67)"]], cf, "dualscale_c", 3)
 # ================= trigger dynamics ==================
-R="/home/kzhao2/nobackup/autodelete/areal_rl/ktdump"
+R=os.path.expanduser("~/nobackup/autodelete/areal_rl/ktdump")
 def load(name):
     dfs=[]
     for f in sorted(glob.glob(f"{R}/{name}/*.parquet")):

@@ -61,5 +61,5 @@ python examples/math/gsm8k_rl.py \
 
 # winner submits its own TP4 eval the moment training ends
 CK=$RLROOT/experiments/checkpoints/$USER/kt-v3race/$KT_ARM-e3/default
-E=$(ls "$CK" 2>/dev/null | tail -1)
+E=$(ls "$CK" 2>/dev/null | grep "^epoch" | tail -1)
 [ -n "$E" ] && sbatch --export=ALL,EVAL_PATH="$CK/$E",EVAL_TAG="v3_$KT_ARM" $HOME/gap_measurement/rl/eval_tp.sbatch

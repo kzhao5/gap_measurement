@@ -1,3 +1,4 @@
+import os
 #!/usr/bin/env python
 """K_t distribution model-selection protocol -- numeric tables only.
 
@@ -51,7 +52,7 @@ import numpy as np
 import pandas as pd
 from scipy import optimize, stats
 
-ADIR = "/home/kzhao2/nobackup/autodelete/gap_measurement/analysis"
+ADIR = os.path.expanduser("~/nobackup/autodelete/gap_measurement/analysis")
 SEED = 20260809
 Q_T1 = [1e-2, 1e-3, 1e-4, 1e-5]
 T2_LEVELS = [0.50, 0.90, 0.99, 0.999, 0.9999, 0.99999]

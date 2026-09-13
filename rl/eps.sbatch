@@ -49,5 +49,5 @@ python examples/math/gsm8k_rl.py \
     $OVR
 
 CK=$RLROOT/experiments/checkpoints/$USER/kt-eps/eps${EPS0}-s${SEED}/default
-E=$(ls "$CK" 2>/dev/null | tail -1)
+E=$(ls "$CK" 2>/dev/null | grep "^epoch" | tail -1)
 [ -n "$E" ] && sbatch --export=ALL,EVAL_PATH="$CK/$E",EVAL_TAG="eps_${EPS0}_s${SEED}" $HOME/gap_measurement/rl/eval_tp.sbatch

@@ -24,7 +24,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-from common import DATA_ROOT, MODELS
+from common import CODE_ROOT, DATA_ROOT, MODELS
 
 
 def load_pq(path):
@@ -180,6 +180,15 @@ def main():
         os.path.join(outdir, f"trajs_{arch}.parquet"),
     )
     print(f"[{arch}] wrote {len(full)} tokens, {len(trajs)} trajs -> {outdir}")
+    # paper_zb.py / analysis figures read CODE_ROOT/results/tokens_<arch>.parquet.
+    # Publish symlinks so the two halves of the pipeline agree without a manual step.
+    for kind in ("tokens", "trajs"):
+        src = os.path.join(outdir, f"{kind}_{arch}.parquet")
+        dst = os.path.join(CODE_ROOT, "results", f"{kind}_{arch}.parquet")
+        if os.path.exists(src):
+            if os.path.islink(dst) or os.path.exists(dst): os.remove(dst)
+            os.symlink(src, dst)
+    print(f"[{arch}] published -> {CODE_ROOT}/results/{{tokens,trajs}}_{arch}.parquet")
 
 
 if __name__ == "__main__":

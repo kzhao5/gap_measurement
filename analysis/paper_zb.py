@@ -1,3 +1,4 @@
+import os
 """Z+B modelling: validation experiments E-A..E-E + paper Figs 1, 3, 4.
 
 Data: results/tokens_{arch}.parquet (campaign, fresh base model, single version).
@@ -13,7 +14,7 @@ import matplotlib.pyplot as plt
 ARCH = sys.argv[1] if len(sys.argv) > 1 else "moe"
 EPS0, KAPPA, KAPPAS, NB, NBOOT = 5e-3, 5, (4, 5, 6), 20, 500
 N_BATCH = 1024
-ROOT = "/home/kzhao2/gap_measurement"
+ROOT = os.path.expanduser("~/gap_measurement")
 OUT = f"{ROOT}/results/paper"; FIG = f"{ROOT}/results/figs/paper"
 os.makedirs(OUT, exist_ok=True); os.makedirs(FIG, exist_ok=True)
 BLUE, ORANGE, GRAY = "#1f77b4", "#ff7f0e", "#9a9a9a"

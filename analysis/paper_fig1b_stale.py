@@ -1,9 +1,10 @@
+import os
 """Fig 1b: dual-scale WITH staleness. Same tokens under fresh vs stale engine
 (paired lg0-e3 v86/v57), plus champion training dump (all lags, c per phase)."""
 import glob, json, os
 import numpy as np, pandas as pd, pyarrow.parquet as pq
 import matplotlib; matplotlib.use("Agg"); import matplotlib.pyplot as plt
-ROOT="/home/kzhao2/gap_measurement"; P="/home/kzhao2/nobackup/autodelete/gap_measurement/paired"; R="/home/kzhao2/nobackup/autodelete/areal_rl/ktdump/lgrid_0"
+ROOT=os.path.expanduser("~/gap_measurement"); P=os.path.expanduser("~/nobackup/autodelete/gap_measurement/paired"); R=os.path.expanduser("~/nobackup/autodelete/areal_rl/ktdump/lgrid_0")
 FIG=f"{ROOT}/results/figs/paper"; OUT=f"{ROOT}/results/paper"; EPS0, KAPPA, NB = 5e-3, 5, 16
 BLUE, ORANGE, GRAY = "#1f77b4", "#ff7f0e", "#9a9a9a"
 plt.rcParams.update({"font.size": 10, "figure.dpi": 150, "axes.grid": True, "grid.color": "#ececec", "axes.spines.top": False, "axes.spines.right": False})
