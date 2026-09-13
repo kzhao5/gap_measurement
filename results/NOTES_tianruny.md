@@ -429,3 +429,53 @@ q30b 两次(epoch1 后、epoch0 后)。q30b 的 checkpoint 是 57GB(dsv2 的近�
 disk 权重同步变慢——这与 R7 是同一机制,只是没有严重到会超时(30h 限时留了足够余量)。
 **教训**:q30b 这类 87 步 × 57GB 同步的 job,墙钟时间对 I/O 争用极其敏感,
 30h 限时是必要的,不能按空闲时的步速去压缩。
+
+## 2026-09-13 E3 dose–response:两条 sglang 后端约束(新签名)
+
+### R12. `fp8_e4m3` 在 Ampere 上必须显式指定 `attention_backend=triton`
+提交 `+sglang.kv_cache_dtype=fp8_e4m3` 后,job 在 **CUDA graph 捕获**阶段失败
+(`FAILED`,ExitCode 1:0,约 12 分钟):
+```
+Scheduler hit an exception: Traceback ...
+  sglang/srt/model_executor/cuda_graph_runner.py:1024 capture_one_batch_size
+  sglang/srt/models/qwen2_moe.py:766 forward
+RuntimeError: FlashAttention on Ampere/Ada cards only supports fp16 and bf16 data type
+```
+
+**根因**在 sglang `ServerArgs` 里:
+```python
+if self.attention_backend == "fa3" and self.kv_cache_dtype == "fp8_e5m2":
+    logger.warning("FlashAttention3 only supports fp8_e4m3 if using FP8; "
+                   "Setting attention backend to triton.")
+    self.attention_backend = "triton"
+```
+它**只对 `fp8_e5m2` 自动切换到 triton,对 `fp8_e4m3` 不切**;而 yaml 默认
+`attention_backend: fa3`(`SGLangConfig` 第 2067 行),于是 e4m3 保持 fa3 → 撞 Ampere 限制。
+
+**重要推论(对 §5.4 的可比性有利)**:原有的 fp8_e5m2 实验(`rl/fp8.sbatch`)并没有设置
+`attention_backend`,它能跑通正是因为**被 sglang 静默切成了 triton**。所以新增档位显式使用
+triton **与既有数据点口径一致**,不构成后端混淆。
+(仍需注意:bf16 基线档用的是 fa3,与 fp8 各档的后端不同——这是既有数据自带的差异。)
+
+### R13. `fp4_e2m1` 同样只是后端问题,**不是硬件限制**
+fp4 探针同样 `FAILED`(10:53),根异常:
+```
+AssertionError: KV4 MHA expects attention_backend to be one of
+['triton', 'torch_native', 'flex_attention', 'trtllm_mha'], but got fa3
+```
+之前担心的"mxfp4 需要 Blackwell(sm100)"**不成立**——sglang 自己的断言把 `triton` 列为合法选择,
+A100(sm80)可用。所以 **4 档(bf16 / fp8_e4m3 / fp8_e5m2 / fp4_e2m1)在现有硬件上全部可跑**,
+唯一要求是显式 `++sglang.attention_backend=triton`。
+
+**修法**(已加入 `env_local/dose.sbatch`,未改仓库):
+```bash
++sglang.kv_cache_dtype=${KVDTYPE} \
+++sglang.attention_backend=${ATTN:-triton} \
+```
+参考:`rl/cells.sbatch` 对 dsv2 早就有 `++sglang.attention_backend=triton`,同一条经验。
+
+### R14.(操作陷阱)`env_local/big_files_env.sh` 会覆盖调用方的变量 `S`
+该脚本里有 `S=$HOME/nobackup/autodelete`(未 export,但 `source` 会污染当前 shell)。
+若调用方也用 `S` 存 sbatch 路径,`source` 之后 `sbatch "$S"` 会指向一个目录,
+报 `sbatch: error: Batch script is empty!`。**排查时容易误以为脚本被写坏**。
+建议把该文件里的局部变量改名(如 `_KTS`)或加 `local`/`unset`。
