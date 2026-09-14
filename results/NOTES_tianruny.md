@@ -851,3 +851,25 @@ ppo update: memory allocated 53.40 GB, reserved 74.55 GB, device used/total 78.6
 **修正我先前的预设判据**:R23 取消探针门控时,我把"fp4 失败"等同于"fp4 不可用、曲线停在 3 档"。
 这个等号是错的——**失败模式的归属(推理侧 vs 训练侧、断言 vs OOM)决定了它是硬门槛还是可调参数**。
 按原判据我会直接放弃 fp4 档,而实际上它很可能只需要一个显存参数。
+
+### R26. fp4 档成立 —— 降 `mem_fraction_static` 即可,R25 的诊断得证
+`13675244`(fp4_e2m1 / nocorr / cs-2-2 / H100 / `++sglang.mem_fraction_static=0.6`)
+**`Train step 1/87 done`**,首步 `reward=0.6484`、`seq_len=288.4`,
+与同一方法在 fp8_e4m3 下的首步(0.6982 / 298.2)同量级。
+
+**R25 的判断得到证实**:fp4 的 OOM 是 **colocate 下 mxfp4 挤压训练侧显存**,
+把推理引擎的静态占比从 0.8 降到 0.6、给训练让出空间即可,**不是架构门槛**。
+若按 R23 原来的判据("fp4 失败 = fp4 不可用"),整个 fp4 档会被错误放弃。
+
+**但余量仍然很窄**:0.6 下 `ppo update` 实测
+`memory reserved 72.61 GB, device used/total 77.34/79.18` —— 距上限不到 2GB。
+而 `ours` 臂要额外运行 σ-TIS 算子(`KT_SIGMA_*`),开销更高。
+故补提的 `fullis` / `ours` 两臂改用更保守的 **0.55**。
+
+**这不改变实验语义**:`mem_fraction_static` 只控制 sglang 推理引擎的显存预留,
+不涉及算子选择、训练超参或 `kv_cache_dtype`。同档三臂之间的差异仍然只有 METHOD 一项,
+档内对比(E3 的核心)不受影响。**但不同档位之间该参数不一致(fp8_e4m3 用 0.8、fp4 用 0.55–0.6),
+需在结果中标注**,虽然它影响的是显存调度而非数值。
+
+**已提交**:fp4_e2m1 的 fullis 与 ours(`TAGSFX=-lowmem`,`mem_fraction_static=0.55`)。
+至此 E3 的两个新档位各三臂全部在途。
