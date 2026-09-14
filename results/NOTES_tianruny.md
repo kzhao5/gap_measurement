@@ -2923,3 +2923,84 @@ standby   Priority=0   Preempt=(空)
 **决定:不再按探测值反复重投。** 再迁一次只会重复同一个误判
 —— 探测器仍然看不见我自己的队列竞争,而每次取消重投都要重新排队。
 12 小时是真实收益,03:40 是幻觉。
+
+### R75. `find` 不跟随符号链接造成的假阴性 —— 同一族错误的第四次,以及一条通用判据
+
+一条命令在自己的输出里自相矛盾:
+
+```
+=== C. nobackup 下 30 分钟内改动的文件 ===
+  (共 0 个)
+```
+而同一次输出的上一段刚刚打印:
+```
+    日志=~/nobackup/autodelete/areal_rl/logs/measure_13689391.out
+    最后写入=2026-09-14 17:30:33   (现在=2026-09-14 17:30:46)
+```
+**13 秒前刚写过的文件,位于我声称"30 分钟内 0 改动"的目录树下。**
+
+#### 机制
+
+```
+/home/tianruny/nobackup             真实目录,root 所有,硬链接数 2(即无子目录)
+/home/tianruny/nobackup/autodelete  SYMLINK -> /nobackup/autodelete/usr/tianruny
+/home/tianruny/nobackup/archive     SYMLINK -> /nobackup/archive/usr/tianruny
+```
+`find` 默认**不跟随符号链接**。`~/nobackup` 本身是真目录但空,
+所有内容都在下一层的两个符号链接后面 —— 于是 `find ~/nobackup` 正确地
+遍历了一个空目录,返回 0,退出码 0。
+
+`~/nobackup` 硬链接数为 2 就是现成的证据:真目录的硬链接数 = 子目录数 + 2,
+**等于 2 意味着它一个子目录都没有**。而我一直把它当成整棵树的根。
+
+对照实验:
+| 命令 | 结果 |
+|---|---|
+| `find ~/nobackup -mmin -30 -type f` | **0** |
+| `find -L ~/nobackup -mmin -30 -type f` | **36** |
+
+#### 同一个 bug 在诊断它的命令里又犯了两次
+
+1. 我写来诊断的那条命令,第 3 段数 parquet 用的还是不带 `-L` 的 `find`
+   → "合计 0 个"。**这不是"没有 parquet",是同一个假阴性。**
+   实际有 44 个。
+2. 同一条命令里我**猜** DATA_ROOT 是 `gap_data`,真值是
+   `common.py:18  DATA_ROOT = ~/nobackup/autodelete/gap_measurement`
+   → 四个 `ls` 全空。第三次假阴性。
+3. 带 bug 的 `find` 还被我抄进了后台完成守护 `b7e1c182y`,
+   那样它会在作业结束时报 "parquet 总数: 0"。已停掉重挂。
+
+#### `-L` 也不是正确的修法
+
+`find -L ~/nobackup` 会顺着符号链接爬进整个 `/nobackup`(别人的目录、
+AReaL 数据集树),输出 768KB 后被我杀掉。
+**正确做法是直接寻址已知路径**(`DATA_ROOT`,从 `common.py` 读出来),
+根本不搜索。搜索是在我不知道路径时才用的工具,而这里路径是写死在代码里的。
+
+#### 判据(本条是重点)
+
+这是同一族错误的第四次:
+| | 现象 | 我当时的读法 |
+|---|---|---|
+| R35/R41 | `find -newermt` 在 bfs 上报错、退出码 0 | "验证通过" |
+| R70 | 半角括号正则匹配全角文本,零替换 | "编辑成功" |
+| R73 | `--test-only` 的时刻 ≠ 已排队作业的 ETA | "迁移到 03:40" |
+| R75 | `find` 不跟随符号链接,返回空 | "目录下没有文件" |
+
+共同形状:**命令成功执行、输出为空,被我读成"目标不存在"。**
+
+**判据:空输出不是证据。** 任何"数量为 0 / 没找到 / 无改动"的结论,
+必须配一个**正对照** —— 让同一条命令去找一个我确知存在的东西,
+它找得到,这个 0 才成立;找不到,说明坏的是命令而不是世界。
+本次的正对照本来唾手可得:那个 13 秒前刚写过的日志文件就在输出里,
+我却没有让这两段互相检验。
+
+#### 顺带确认:测量作业的真实产出
+
+```
+DATA_ROOT/gen/moe        16 个 (tokens_shard000-007 + trajs_shard000-007)
+DATA_ROOT/gen/dense      16 个 (同上)
+DATA_ROOT/recompute/moe   8 个 (recomp_shard000-007_bf16)  <- moe 已齐
+DATA_ROOT/recompute/dense 4 个 (recomp_shard000-003_bf16)  <- 进行中
+```
+`13689391`(moe)已 COMPLETED,`13689392`(dense)仍在 recompute 后半程。
