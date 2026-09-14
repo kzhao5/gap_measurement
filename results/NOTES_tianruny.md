@@ -810,3 +810,44 @@ R18 里我根据 H100/H200 同为 sm90 推断两者行为一致,并据此把 `ou
 **仍保留的谨慎**:首步数值同量级不等于整条训练轨迹等价。按 R22 的承诺,
 各 arm 的实际硬件已逐一标注(nocorr/fullis 在 H200、ours 在 H100),
 是否需要在 caption 说明、或要求同档同硬件重跑,由 kzhao2 判断。
+
+### R25. fp4 首跑 OOM —— 但**不是架构不支持**,是 colocate 下的显存挤压
+`13671278`(fp4_e2m1 / nocorr / cs-2-2 / H100)`FAILED` 于 21:26,0 步。
+**关键是要看清失败发生在哪一侧**:
+
+```
+RLTrainer ERROR: Training failed with exception: CUDA error: out of memory
+  areal/utils/stats_tracker.py:331 export → :388 _aggregate → :233 _placeholder_scalar
+torch.AcceleratorError: CUDA error: out of memory
+```
+—— traceback 落在 **训练侧**(RLTrainer / stats_tracker),不是 sglang 引擎。
+且 `KV4 MHA expects ...` 断言 **0 次**,说明 **fp4 的后端路径本身是通的**,
+R23 里"fp4 架构可用"的判断没有被推翻。
+
+**显存证据**:
+```
+ppo update: memory allocated 53.40 GB, reserved 74.55 GB, device used/total 78.68 (H100 = 80GB)
+```
+已经打满。而**同为 H100、同样 `mem_fraction_static: 0.8` 的 `ours-fp8_e4m3` 臂正常运行**
+(当时 8/87 步),所以差异来自 dtype 本身。
+
+**机制**:AReaL 是推理与训练 **colocate 在同一组 8 卡**上。mxfp4 需要额外的 scale 张量与
+反量化缓冲,sglang 侧占得比 fp8 更多,于是**挤压了训练侧 FSDP 可用的显存**。
+`mem_fraction_static` 是**推理引擎的静态占比**,降低它等于给训练让出空间。
+
+**与 A100 那次 OOM(R15/R17)的区别——两种形态必须分开**:
+
+| | A100(R15) | 本次 fp4(R25) |
+|---|---|---|
+| 死的是谁 | **推理服务器进程** | **训练进程** |
+| 症状 | `exited with code -9`(SIGKILL,server never healthy) | `torch.AcceleratorError: CUDA OOM` 于 stats 聚合 |
+| 阶段 | 引擎启动前 | 已完成 ppo update,收尾统计时 |
+| 降 `mem_fraction` 是否有效 | **无效**(0.8→0.6 更早失败) | 待验 |
+
+**处置**:取消 `13675133`/`13675134`(同参数必然同样失败),按 R4 清理残留,
+以 `++sglang.mem_fraction_static=0.6` 重投一个验证臂(`TAGSFX=-lowmem`,按 R22 编码用途而非硬件)。
+通过再铺开另外两臂。
+
+**修正我先前的预设判据**:R23 取消探针门控时,我把"fp4 失败"等同于"fp4 不可用、曲线停在 3 档"。
+这个等号是错的——**失败模式的归属(推理侧 vs 训练侧、断言 vs OOM)决定了它是硬门槛还是可调参数**。
+按原判据我会直接放弃 fp4 档,而实际上它很可能只需要一个显存参数。
