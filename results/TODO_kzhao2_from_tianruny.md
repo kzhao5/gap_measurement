@@ -214,3 +214,35 @@ export/two_channel_figure_data/scripts/common.py:17-19
 建议**把抽样位置的选取规则也写进 dump 的元数据**(如 seed、步长、是否按 p_t 分层),
 否则两个引擎"相同位置"这一前提在事后无法独立核验 —— 这与 tianruny 在 E3 里
 反复遇到的"假设覆盖、实则没有"是同一类风险。
+
+
+---
+
+## H. 【建议并入 C 项】`gen_vllm.py` 同时加一个量化参数,一次改完
+
+你已要为 E1 的 δ dump 改 `src/gen_vllm.py`。**建议在同一次改动里再加一个 KV / logit 量化开关**,
+理由是老师 E3 的 P1(零成本诊断扫描)也卡在同一个文件上。
+
+**现状**(已逐行确认,非推测):
+```
+gen_vllm.py argparse(196-202):--arch / --shard / --num-shards / --smoke / --max-num-seqs
+llm_kwargs(229-240):        dtype="bfloat16" 写死,无 kv_cache_dtype / quantization 键
+```
+因此**无法按档位重跑静态测量**,而老师 E3 要求每档记录 `μ = E[e^ε]`、`E[e^{2ε}]`、`c`、`ξ₊`。
+
+**好消息是下游已经齐备**,只缺这一个入口:
+- μ 与 `E[e^{2ε}]`:`analysis/s0_closure.py:125-128` 已实现(`logsumexp(eps)-log N`);
+- `c`:`paper_numbers.json` 已有 `c_moe = 0.1553`;
+- 数据与模型:`data/prompts_math.jsonl`(2500 条)、MoE 与 dense 各 27G 均已缓存;
+- `rl/measure.sbatch` 与 `analysis/` 在你这次修复后**已无 `/home/kzhao2` 硬编码**,tianruny 可直接跑。
+
+**一个可能省很多事的线索,建议改之前先验**:`gen_vllm.py` 用的是 `enforce_eager=True`
+(注释:python gate hooks 无法在 CUDA graph 内触发)。而 tianruny 在训练侧遇到的
+「A100 拒绝 fp8/fp4 KV」**发生在 CUDA-graph 捕获路径**(NOTES R15/R17)。
+**若该限制只在 graph 路径上成立,则诊断扫描可以在 A100 上跑**,
+不必占用稀缺的 Hopper —— `measure.sbatch` 本来就指向 dw 分区。
+
+**为什么这件事现在优先级变高了**:E3 的训练部分已全部跑完,而**老师那条核心可证伪预测出现了反向证据**
+(fp4 档 CIS 29.84 落后 exact-ratio 32.32,z=−2.26,见 `results/E3_CIS_dose_response.md` §10.3)。
+**由于每档的 μ 没测,目前无法确认该反向证据针对的是「μ」还是仅仅「量化档位」** ——
+这个参数正是把结论从「带条件」变成「干净」的关键。

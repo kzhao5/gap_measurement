@@ -2775,3 +2775,33 @@ A 不是可选的前置工作,它是 B 的解释框架的一部分** —— 缺�
 **先补四个诊断量**(低成本、无需训练、可在现有 checkpoint 上算)——
 它同时补上缺口 2 与 4,并决定反向证据该归因于「μ」还是「档位」;
 再考虑补 `fp8_e5m2` 一档定位阈值;最后才是 fp4 补种子。
+
+### R72. 订正 R71 的补做建议:诊断量只有**基线那一档**是免费的
+
+R71 与结果文档 §10.4 把「补测四个诊断量」笼统写成「低成本、无需训练」。
+实测接口后发现**这只对一半**,已在两处订正。
+
+**免费的部分(可立即跑,零代码改动)**:基线 bf16 的 `μ` 与 `E[e^{2ε}]`。
+- `rl/measure.sbatch` 经 kzhao2 修复后已无 `/home/kzhao2`(实测命中 0);
+- `data/prompts_math.jsonl`(2500 条)、MoE 与 dense 两个模型(各 27G)均已本地缓存;
+- `DATA_ROOT` 存在可写(0 parquet,按 kzhao2 的建议重跑即可);
+- **μ 有现成实现**:`analysis/s0_closure.py:125-128` 就是 `logsumexp(eps)-log(N)`(log μ)
+  与 `logsumexp(2*eps)-log(N)`,无需新推导;
+- ε 可由现有 schema 直接得出(`gen_vllm.py` 写 `logp_infer`、`recompute_train.py` 写 `logp_train`),
+  **不需要 E1 那套完整 logit 向量** —— 这两件事可以解耦,是我先前没分清的。
+
+**不免费的部分**:按档位注入量化。逐行确认 `src/gen_vllm.py`:
+argparse(196-202)只有 `--arch/--shard/--num-shards/--smoke/--max-num-seqs`;
+`llm_kwargs`(229-240)把 `dtype="bfloat16"` 写死,**无 `kv_cache_dtype` 或 quantization 键**。
+→ **须改仓库代码**,与 kzhao2 的 C 项同属 `gen_vllm.py`,已建议并入(TODO H 节)。
+
+**一个待验证的线索(记为线索,不是结论)**:measure 路径用 `enforce_eager=True`
+(源码注释:python gate hooks 无法在 CUDA graph 内触发),
+而训练侧「A100 拒绝 fp8/fp4 KV」发生在 **CUDA-graph 捕获路径**(R15/R17)。
+**若该限制只在 graph 路径上成立,诊断扫描可能在 A100 上就能跑**,无需占用 Hopper。
+这会显著降低补测成本,**建议改代码前先验证这一点**。
+
+**教训**:上一轮我在只看到「硬编码已清零 + 数据模型齐备」后,就说了「P1 现在我跑得动了」。
+**那是从『阻塞之一已解除』跳到了『不再有阻塞』。** 真正的闸门是一个我当时没查的参数面。
+**可复用的判据:确认可行性时,要逐项列出该任务需要的全部输入,再逐项核销;
+只核销自己想到的那几项,等于用『我没想到别的』当作『没有别的』。**
