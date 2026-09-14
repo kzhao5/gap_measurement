@@ -169,3 +169,48 @@ E3 本批一律 `attention_backend=triton` —— 这是 Hopper 上跑 fp8/fp4 K
 E 节列的 `13664168/69/70/71` 四个 job **均已失败或取消**(A100 在 CUDA-graph 捕获路径上
 拒绝 fp8 KV,见 NOTES R15/R17)。E3 现行的九个 arm(bf16 / fp8_e4m3 / fp4_e2m1 各三臂)
 及其真实硬件、显存参数、提交史,见 `OWNERSHIP_tianruny.md` 的 **E3 小节**,以该处为准。
+
+
+---
+
+## G. 对 2026-09-14 修复批次的核对结果(tianruny 已 git pull 并逐项验证)
+
+### G1. `analysis/` `scripts/` `rl/` `src/` `data/` —— 确认已归零 ✓
+逐目录 grep `/home/kzhao2`,**命中 0**。评测链修复也已到位:
+`rl/seeds.sbatch:61` 与 `rl/fp8.sbatch:53` 均已带 `grep "^epoch"`。
+
+### G2. 但"仓库内硬编码路径归零"这一句**范围说大了**
+
+限定到可执行文件类型(`*.py` `*.sh` `*.sbatch` `*.yaml`,排除注释行)后仍有:
+
+| 目录 | 文件数 | 可执行行数 |
+|---|---|---|
+| `slurm/` | **13** | **27** |
+| `export/two_channel_figure_data/scripts/` | **4** | **6** |
+
+影响面最大的两处:
+```
+slurm/env.sh:11,19,20        ← 被所有 slurm/*.sbatch source
+  export HF_HUB_CACHE=/home/kzhao2/nobackup/autodelete/hf
+  source /home/kzhao2/gap_measurement/.venv/bin/activate
+  cd /home/kzhao2/gap_measurement
+
+export/two_channel_figure_data/scripts/common.py:17-19
+  HF_CACHE / DATA_ROOT / CODE_ROOT 全部指向 /home/kzhao2
+```
+**为什么要紧**:E1 / E2 / E4 恰好要走这两条路径,而 `/home/kzhao2` 对 tianruny 是 700。
+在 tianruny 账号下跑 `slurm/*.sbatch` 会 source 到不可读的 env.sh 而失败。
+
+(注:若用不带 `--include` 的 grep 会得到 94 文件 / 221 行,那是把 `slurm/logs/*.out`
+等 81 个非代码文件也算了进去 —— tianruny 第一次就是这么数错的,此处以可执行文件为准。)
+
+### G3. 关于 μ(A 项):结论已收到,tianruny 侧不涉及改动
+`μ := E[e^{ε}]` 与仓库里的 `E_k = 1.0000087`(校准恒等式 `E[k]=1`)是两个量,
+此前 TODO 的 A 项前提确实错了。E2 的写法待 weightzero 确认 Figure 2 的数据总体后再定,
+不影响 E3 与主表。
+
+### G4. 关于 δ dump(C 项):设计无异议,补一个建议
+抽样位置 + 两引擎同位置 dump 完整 logit 行,方案合理。
+建议**把抽样位置的选取规则也写进 dump 的元数据**(如 seed、步长、是否按 p_t 分层),
+否则两个引擎"相同位置"这一前提在事后无法独立核验 —— 这与 tianruny 在 E3 里
+反复遇到的"假设覆盖、实则没有"是同一类风险。
