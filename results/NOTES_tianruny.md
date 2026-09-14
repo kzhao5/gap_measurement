@@ -2805,3 +2805,64 @@ argparse(196-202)只有 `--arch/--shard/--num-shards/--smoke/--max-num-seqs`;
 **那是从『阻塞之一已解除』跳到了『不再有阻塞』。** 真正的闸门是一个我当时没查的参数面。
 **可复用的判据:确认可行性时,要逐项列出该任务需要的全部输入,再逐项核销;
 只核销自己想到的那几项,等于用『我没想到别的』当作『没有别的』。**
+
+### R73. 调度与信号选择的四项发现(两项订正我自己的工具)
+
+补提 `fp8_e5m2` 一档时,为给三臂找到最早的启动时机而做的排查,得到四条可复用的结论。
+
+#### 1. `--qos=gstandby` 被策略拒绝,必须用 `--qos=standby`;而 standby 可跨三个 Hopper 分区
+
+集群显式拒绝并给出理由:
+```
+sbatch: error: Do not directly request --qos=gstandby. Request --qos=standby instead.
+        This is in place for your benefit so that we can change the logic without you having to change anything.
+```
+查我的完整 QOS(先前输出被截断,漏看了 `standby`):
+`bigmem,cs,dw87,gpu,gstandby,login,m7_64,m8_128,normal,private,standby,test`。
+
+**`standby` 同时被 m13h / cs2 / eng 接受**,因此可以 `--partition=m13h,cs2,eng --qos=standby`
+一次提交、三分区可投,谁先空谁接。代价是可被 `gstandby`(Priority=50,Preempt=standby)抢占。
+
+#### 2. `sbatch --test-only` 是零成本的调度探测,应在决定迁移前先用
+
+它只报可行性与预计起始,**不入队、无副作用**。本次三个探测结果差距悬殊:
+
+| 提交方式 | Slurm 预估起始 |
+|---|---|
+| `--qos=gpu --partition=m13h`(原提交方式) | **2026-10-26 08:45** |
+| `--qos=standby --partition=m13h,cs2,eng` | **2026-09-15 03:40**(cs-2-1) |
+| `--qos=gstandby ...` | 直接报错拒绝 |
+
+**六周 vs 次日凌晨。** 若不探测,我会一直以为 `squeue` 给的 9/16 估计就是全部真相。
+**`squeue` 的 START_TIME 只反映当前提交方式下的排期,不告诉你换一种提交方式会怎样;
+`--test-only` 才回答后者。**
+
+#### 3. 我的"空闲卡"判据在 `down` / `drain` 节点上产生假阳性
+
+自 R29/R36 起我用 `CfgTRES.gres/gpu − AllocTRES.gres/gpu >= 8` 判断节点能否容纳 8 卡作业。
+本次它把 `dw-2-1` 与 `dw-2-2` 标成"可容 8 卡",而两者实际是
+`State=DOWN+NOT_RESPONDING` —— **正因为它们不分配任何东西,才显示全部空闲**。
+
+**修正后的判据必须同时看节点状态**:
+```
+free = CfgTRES.gres/gpu − AllocTRES.gres/gpu
+可用 ⟺ free >= 需求 且 State 不含 DOWN/DRAIN/RESERVED/NOT_RESPONDING
+```
+**"没有被占用"与"可以被分配"是两回事**,而只看占用量的判据分不出来。
+
+顺带一条同类的:`m13l` 每节点只有 `gpu:l40s:4`,**架构上就放不下 8 卡作业**;
+`dw-2-4` 是 `IDLE` 但 `gres/gpu=7`,同样接不了 `--gres=gpu:8`。
+**判断可用性要先看单节点的配置上限,再看空闲量。**
+
+#### 4. 把阶跃信号的平坦读成了停滞
+
+诊断测量作业时,我连续三次读到 gen 分片数停在 `4/8`,据此怀疑卡住。
+实际是**分片只在整轮跑完时才落盘**,round 1 期间该计数必然不动 —— 它是阶跃信号。
+而同一时刻可用的连续信号显示一切正常:vLLM 进度条 68%(1709/2496)、约 2 it/s、
+日志每几秒增长、GPU 利用率 60–62%、每节点 4 个 python 进程存活。
+
+**判据:判断"是否在推进",要选一个会连续变化的量。**
+文件数、epoch 数、分片数这类**阶跃量在两级之间必然平坦**,
+用它们的平坦推断停滞,等于把正常工作状态误判为故障。
+这与前文几次信号选择错误同源(R41 扫错文件、R52 看目录而非内容、R65 只看静默)——
+**每一次的根子都是:我度量的量,不是我想回答的那个问题。**
