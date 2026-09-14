@@ -404,3 +404,9 @@ dose5_fp8_e4m3_nocorr	math500	0.2580	500
 dose5_fp8_e4m3_nocorr	svamp	0.6500	300
 dose5_fp8_e4m3_nocorr	minerva	0.0662	272
 dose5_fp8_e4m3_nocorr	olympiad	0.0504	674
+dose5_fp8_e4m3_fullis	gsm8k	0.6619	1319
+dose5_fp8_e4m3_fullis	gsm8k_em	0.6406	1319
+dose5_fp8_e4m3_fullis	math500	0.2320	500
+dose5_fp8_e4m3_fullis	svamp	0.6367	300
+dose5_fp8_e4m3_fullis	minerva	0.0588	272
+dose5_fp8_e4m3_fullis	olympiad	0.0386	674
