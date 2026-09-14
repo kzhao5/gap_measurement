@@ -79,6 +79,16 @@ E=$(ls "$CK" 2>/dev/null | tail -1)
 # rl/cells.sbatch 的正确写法:
 E=$(ls "$CK" 2>/dev/null | grep "^epoch" | tail -1)
 ```
+**2026-09-14 补:这不再是推断,是在真实目录里观测到的。**
+`13671277` 写完第三个 epoch 后,其 checkpoint 目录内容为:
+```
+epoch0epochstep28globalstep28
+epoch1epochstep28globalstep57
+weight_update_v82          <- 字典序排在 epoch* 之后
+```
+`ls | tail -1` 会选中 `weight_update_v82`。本次未受影响,
+因为 `env_local/dose.sbatch` 已加 `grep "^epoch"`;但仓库里的 `rl/fp8.sbatch` 仍是原样。
+
 `fp8.sbatch` 少了 `grep "^epoch"`,会选中 `weight_update_v*` 目录去评测——
 正是 HANDOFF §6 里"评测行数值≈2%/空串"那一类故障。tianruny 的 E3 脚本
 (`env_local/dose.sbatch`,未改仓库)已修正此处。
