@@ -288,3 +288,48 @@ CIS 的总体结论(含本格)见 NOTES **R64 + R67**。
 
 fp4 档旧协议行:`nocorr` 36.09 / `fullis` 60.35 / `ours` **57.92**;
 `ours − fullis` 在旧协议为 **-2.43**、五 benchmark 为 **-2.48**,**两把尺子同向**。
+
+---
+
+## 补充实验第二批(2026-09-14,依 `docs/CIS_待补实验.md` 与结果文档 §10.4 提交)
+
+### A. `fp8_e5m2` 一档 × 3 算子 —— 补齐老师四档阶梯里缺的那一级
+
+| JobID | 档位 | 算子 | 分区/QOS | mem_frac | attn | TAGSFX |
+|---|---|---|---|---|---|---|
+| 13689388 | fp8_e5m2 | `nocorr` | m13h / gpu | 0.8 | triton | `-ctrl` |
+| 13689389 | fp8_e5m2 | `fullis` | m13h / gpu | 0.8 | triton | `-ctrl` |
+| 13689390 | fp8_e5m2 | `ours`(CIS) | m13h / gpu | 0.8 | triton | `-ctrl` |
+
+**参数与 fp8_e4m3 档完全一致**(mem 0.8 / triton),以保证档间只有 `kv_cache_dtype` 一个变量。
+提交前已按 R4 复查三个目标目录洁净;`env_local/dose_jobids.txt` 已同步,汇总脚本可直接取数。
+
+**为什么补这一档**:老师的阶梯是 bf16(u=2⁻⁸)→ e4m3(2⁻⁴)→ **e5m2(2⁻³)** → fp4(2⁻²),
+先前跑了第 1/2/4 级。而本实验发现的阶跃**恰好落在被跳过的那一级两侧**
+(`nocorr` 由 e4m3 的 34.14 塌到 fp4 的 12.73)—— e5m2 是唯一能定位阈值的一级。
+
+**提交时 Hopper 无任何节点有 8 张空卡**(m13h 最多 6),三臂均为 PENDING,属正常排队。
+
+### B. 基线诊断测量 —— 老师设计的 P1(零代码改动)
+
+| JobID | ARCH | 模型 | 分区 |
+|---|---|---|---|
+| 13689391 | `moe` | Qwen1.5-MoE-A2.7B-Chat | dw(4×A100) |
+| 13689392 | `dense` | Qwen1.5-14B-Chat | dw(4×A100) |
+
+**产出链**:`gen_vllm.py` → `tokens_<arch>.parquet`(含 `logp_infer`);
+`recompute_train.py` → `logp_train`;二者给出 ε;
+**μ = E[e^ε] 与 E[e^{2ε}] 由 `analysis/s0_closure.py:125-128` 直接算**(已有实现,无需新推导)。
+
+**回答两个悬而未决的问题**:① kzhao2 的 A 项「7.07 对应哪个总体」;
+② 给 E3 的 dose 曲线一个真实的 μ 分母 —— 目前 §10.3 的反向证据**因缺 μ 而只能是带条件的结论**。
+`dense` 是老师 E2 明确要求的对照组(无路由的干净场)。
+
+**注意**:这是本账号**首次**运行 measure 流程(此前 `DATA_ROOT` 为空、TODO B 项记为阻塞);
+kzhao2 清除 `rl/` 与 `analysis/` 的硬编码后方才可行。
+
+### 仍被阻塞、未提交的一项
+
+**按档位的 μ(e4m3 / e5m2 / fp4)** 需给 `src/gen_vllm.py` 加量化参数
+(argparse 现仅 `--arch/--shard/--num-shards/--smoke/--max-num-seqs`,`dtype="bfloat16"` 写死)。
+属仓库代码改动,已建议并入 kzhao2 的 δ-dump(TODO **H** 节)。
