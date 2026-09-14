@@ -119,3 +119,23 @@ bf16 是 dose 曲线的锚点,缺 `ours` 则整条曲线没有起点)。
 
 `env_local/dose_jobids.txt` 已同步(移除 13676237,新增三行)。
 `ours` 臂**不传 `LAMP`**,取默认 `KT_SIGMA_B=2.3`(cell A 不在 LAMP 规则内,见 NOTES R30)。
+
+### 五 benchmark 复评(新协议 `eval_suite.py`)已完成两个 checkpoint
+
+| JobID | 评测对象 | EVAL_TAG | 用时 | 状态 |
+|---|---|---|---|---|
+| 13676235 | `nocorr-fp8_e4m3-h200` / `epoch2epochstep28globalstep86` | `dose5_fp8_e4m3_nocorr` | 00:10:20 | COMPLETED |
+| 13676298 | `fullis-fp8_e4m3-h200` / `epoch2epochstep28globalstep86` | `dose5_fp8_e4m3_fullis` | 00:11:55 | COMPLETED |
+
+**为什么要对已经评过的 checkpoint 再评一次**:这两个 checkpoint 本来就有旧协议
+(`eval_gsm8k.py`)的结果,再用新协议评一遍,**同一个 checkpoint 上的新旧之差
+就是评测协议差的直接测量值**,无需重训。两次分别得 +6.06 / +5.99(极差 0.07),
+恰好解释了仓库里 SIGMA_TIS 与主表之间那 5.66 分的差(见 NOTES R33 / R38)。
+
+结果(等权五 benchmark 均值):`nocorr` **34.14**、`fullis` **32.56**。
+逐 benchmark 数值、协议差分解、以及与主表 cell A 参照值的对照见 NOTES **R38 / R39 / R40**;
+汇总脚本 `env_local/dose5_curve.sh`(不在仓库内)。
+
+共 **12 行**写入 `results/eval_suite.tsv`,tag 前缀 `dose5_`,
+与主表的 `suite_`、GSM8K 曲线用的 `dose_` 均不冲突
+(`dose_curve.sh` 的正则只匹配 `RESULT dose_`,已验证不会误收)。
