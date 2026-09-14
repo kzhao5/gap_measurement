@@ -87,3 +87,18 @@ fp4 那次死在**训练侧**(colocate 显存挤压,是可调参数)。
 - **`mem_fraction_static` 跨档不一致**(fp8_e4m3=0.8,fp4=0.6/0.55):
   它只控制 sglang 推理引擎的显存预留,不涉及算子选择或训练超参,档内对比不受影响,但需标注。
 - **既有的 bf16 / fp8_e5m2 两行不可与本批合读** —— 硬件、attention backend、训练轨迹三重差异(NOTES R21)。
+
+### 补充:第 7 个 arm —— bf16 对照(2026-09-14 03:15 提交)
+
+| JobID | kv_cache_dtype | method | 分区/QOS | mem_frac | attn | TAGSFX | 状态 |
+|---|---|---|---|---|---|---|---|
+| 13676237 | **bf16** | nocorr | cs2 / cs | 0.8 | triton | `-ctrl` | PENDING |
+
+目的:曲线里既有的 bf16 / fp8_e5m2 两行来自 2026-08 的另一批运行,与本批在
+**硬件**与**训练轨迹**上不同(评测协议相同,见 NOTES R31)。
+让 bf16 档也走同一条 dose 路径后,整条曲线可只用自跑数据,不再依赖旧行。
+
+另有评测作业 `13676235`(`kt-suite` @ dw-1-5):对 `nocorr-fp8_e4m3-h200` 的最终 epoch
+做**五 benchmark 复评**,tag `dose5_fp8_e4m3_nocorr`,用于测量两套评测协议之差。
+该 tag 的行会写进 `results/eval_suite.tsv`,前缀 `dose5_` 与主表的 `suite_`、
+曲线用的 `dose_` 均不冲突(`dose_curve.sh` 的正则只匹配 `RESULT dose_`,已验证不会误收)。
