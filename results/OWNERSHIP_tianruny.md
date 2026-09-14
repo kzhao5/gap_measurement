@@ -139,3 +139,23 @@ bf16 是 dose 曲线的锚点,缺 `ours` 则整条曲线没有起点)。
 共 **12 行**写入 `results/eval_suite.tsv`,tag 前缀 `dose5_`,
 与主表的 `suite_`、GSM8K 曲线用的 `dose_` 均不冲突
 (`dose_curve.sh` 的正则只匹配 `RESULT dose_`,已验证不会误收)。
+
+### fp8_e4m3 档收官:第三臂与两次评测(2026-09-14 04:2x–05:0x)
+
+| JobID | 内容 | 结果 | 用时 |
+|---|---|---|---|
+| 13671277 | fp8_e4m3 / `ours` 训练 | 87/87 步,epoch 3/3,**干净收尾**,评测链自动触发 | 4:55:23 |
+| 13676579 | `eval_tp`(旧协议 GSM8K) | `dose_fp8_e4m3_ours` **= 0.6361**(839/1319) | — |
+| 13676577 | `eval_suite`(五 benchmark) | `dose5_fp8_e4m3_ours` 等权 **33.95** | 00:10:54 |
+
+**fp8_e4m3 档(三臂齐全)**:
+
+| 方法 | 旧协议 GSM8K | 五 benchmark 等权 |
+|---|---|---|
+| `nocorr` | 62.17 | 34.14 |
+| `fullis` | 60.20 | 32.56 |
+| `ours`(CIS) | 63.61 | 33.95 |
+
+判读见 NOTES **R45**(预登记落在"与 nocorr 不可分")与 **R46**
+(五 benchmark 独立印证;math-verify 下 `ours − nocorr` 仅 +0.08)。
+`eval_suite.tsv` 新增 6 行,tag `dose5_fp8_e4m3_ours`。
