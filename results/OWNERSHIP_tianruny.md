@@ -102,3 +102,20 @@ fp4 那次死在**训练侧**(colocate 显存挤压,是可调参数)。
 做**五 benchmark 复评**,tag `dose5_fp8_e4m3_nocorr`,用于测量两套评测协议之差。
 该 tag 的行会写进 `results/eval_suite.tsv`,前缀 `dose5_` 与主表的 `suite_`、
 曲线用的 `dose_` 均不冲突(`dose_curve.sh` 的正则只匹配 `RESULT dose_`,已验证不会误收)。
+
+### 更正:`13676237` 已取消,bf16 档改投 m13h 并投满三臂(2026-09-14 03:34)
+
+上一小节列出的 `13676237`(bf16 / nocorr / cs2)**已取消**,原因见 NOTES R36:
+它在 cs2 的预计起始为 `2026-09-15T00:00:00`,而 cs2 仅有的两个节点被我自己的
+`13671277` / `13675244` 占满 —— 它实际是在排我自己的队。m13h 经逐节点核算确有
+三个整节点空闲,迁过去后立即开跑。同时投满 bf16 三臂(理由见 NOTES R37:
+bf16 是 dose 曲线的锚点,缺 `ours` 则整条曲线没有起点)。
+
+| JobID | kv_cache_dtype | method | 分区/QOS | mem_frac | attn | TAGSFX | 提交时状态 |
+|---|---|---|---|---|---|---|---|
+| 13676300 | bf16 | nocorr | m13h / gpu | 0.8 | triton | `-ctrl` | **RUNNING** |
+| 13676301 | bf16 | fullis | m13h / gpu | 0.8 | triton | `-ctrl` | PENDING |
+| 13676302 | bf16 | ours(CIS) | m13h / gpu | 0.8 | triton | `-ctrl` | PENDING |
+
+`env_local/dose_jobids.txt` 已同步(移除 13676237,新增三行)。
+`ours` 臂**不传 `LAMP`**,取默认 `KT_SIGMA_B=2.3`(cell A 不在 LAMP 规则内,见 NOTES R30)。
