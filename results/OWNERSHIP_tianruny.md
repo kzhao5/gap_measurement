@@ -41,3 +41,49 @@
 | **q30b seqtis s1** | **3** | **13643927** | 前两次均在 epoch 边界挂死(共烧 12h14m) |
 
 诊断与修法见 `NOTES_tianruny.md` 的 R1–R11。
+
+## E3 dose–response(2026-09-13/14 新增,cell A = Qwen1.5-MoE-A2.7B-Chat)
+
+来源:老师 `CIS_待补实验.md` 的 **E3(受控噪声注入的 dose–response)**。
+脚本 `~/nobackup/autodelete/env_local/dose.sbatch` —— `rl/fp8.sbatch` 的参数化副本,
+算子分支与 `rl/cells.sbatch:43-44` **逐字一致**(见 NOTES R30)。
+**未改动任何 yaml / recipe / 算子参数**;唯一新增的是 `kv_cache_dtype` 与 `attention_backend` 的传参。
+
+| JobID | kv_cache_dtype | method | 硬件 | mem_frac | attn | 状态 | GSM8K held-out |
+|---|---|---|---|---|---|---|---|
+| 13671240 | fp8_e4m3 | nocorr | m13h-1-2 (H200) | 0.8 | triton | COMPLETED 6:36:52 | **0.6217** (820/1319) |
+| 13671276 | fp8_e4m3 | fullis | m13h-1-2 (H200) | 0.8 | triton | COMPLETED 6:41:56 | **0.6020** (794/1319) |
+| 13671277 | fp8_e4m3 | ours(CIS) | cs-2-1 (H100) | 0.8 | triton | RUNNING epoch 3/3 | 待评测 |
+| 13675244 | fp4_e2m1 | nocorr | cs-2-2 (H100) | 0.6 | triton | RUNNING epoch 2/3 | 待评测 |
+| 13675697 | fp4_e2m1 | fullis | cs2 待分配 | 0.55 | triton | PENDING(起 09-14 11:30) | — |
+| 13675698 | fp4_e2m1 | ours(CIS) | cs2 待分配 | 0.55 | triton | PENDING(起 09-14 12:36) | — |
+
+上表的硬件 / `mem_frac` / `attn` **不是按提交意图记的,而是逐个从该 trial 已解析的
+`experiments/logs/$USER/kt-dose/<trial>/config.yaml` 与 `sacct NodeList` 读出来的实际值**
+(理由见 NOTES R22:目录名不可信)。
+
+评测 job:`13673240`(nocorr,9:15)、`13676008`(fullis,5:13),均 COMPLETED,走 `rl/eval_tp.sbatch`。
+
+### E3 的提交历史:9/13 起共 21 次,**只有 2 次落地**
+
+| 批次 | JobID | 结局 | 原因 |
+|---|---|---|---|
+| A100 试跑 | 13664168 / 13664171 / 13671239 / 13671272 | FAILED(各 10–12 分钟) | A100(sm80)在 CUDA-graph 捕获路径上拒绝 fp8 KV,降显存无效 → 放弃 A100(NOTES R15/R17) |
+| A100 批量 | 13664169/70、13671215–13671220 | CANCELLED | 同参数必然同样失败,主动取消 |
+| **Hopper 落地** | **13671240 / 13671276** | **COMPLETED** | H200 + `attention_backend=triton`,不需要其他 workaround |
+| fp4 首跑 | 13671278 | FAILED(21:26) | `mem_fraction=0.8` 下 mxfp4 挤压训练侧显存 → **训练进程** CUDA OOM(NOTES R25) |
+| fp4 批量 | 13675133 / 13675134 | CANCELLED | 同上,主动取消以待验参数 |
+| **fp4 降显存** | **13675244** | RUNNING | `mem_fraction_static=0.6` 跑通,证实 R25 的诊断(NOTES R26) |
+
+两次失败的**归属不同**,这是 E3 最花时间的地方:A100 那批死在**推理侧**(架构硬门槛,不可调),
+fp4 那次死在**训练侧**(colocate 显存挤压,是可调参数)。
+按"失败即不可用"处理会错误放弃整个 fp4 档。
+
+### E3 专用说明(与主表规则不同,勿套用)
+- **`LAMP` 不传**:E3 是 cell A,不在 `dsv2=15.0 / q30b=0.95` 的规则内;
+  三个 `ours` 臂一律取 `dose.sbatch` 的默认 `KT_SIGMA_B=2.3`(NOTES R30)。
+- **TAG 不是 `vllm`**:E3 走 sglang + `eval_tp.sbatch`,评测 tag 形如 `dose_<dtype>_<method>`,
+  **结果只写进日志的 `RESULT` 行,不进 `eval_suite.tsv`**。曲线用 `env_local/dose_curve.sh` 汇总。
+- **`mem_fraction_static` 跨档不一致**(fp8_e4m3=0.8,fp4=0.6/0.55):
+  它只控制 sglang 推理引擎的显存预留,不涉及算子选择或训练超参,档内对比不受影响,但需标注。
+- **既有的 bf16 / fp8_e5m2 两行不可与本批合读** —— 硬件、attention backend、训练轨迹三重差异(NOTES R21)。

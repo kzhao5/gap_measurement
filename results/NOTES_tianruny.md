@@ -947,3 +947,42 @@ fp4 的 `fullis`/`ours`(`13675697`/`13675698`)在 cs2 排到 **11:30 / 12:36**�
 **净结论:查证顺序救了这一次。** 若按"看到 idle 就取消重投",会同时丢掉
 11:30/12:36 两个位置**并且**在 m13h 上照样排队。
 **先验证目标可用、再释放已有资源**,顺序不能反。
+
+### R30. E3 的 `ours` 臂与主表 CIS 是**同一算子**(逐字核对);σ 参数定为 b=2.3
+
+**先说风险**:`ours` 与 `fullis` 的 hydra 覆盖 `OVR` **完全相同**
+(都是 `action=clamp lower=1e-6 upper=1e6`),两者唯一的差别是五个 `KT_SIGMA_*` **环境变量**。
+也就是说 **一旦 export 没生效,`ours` 会静默退化成 `fullis`**,
+而且**日志不打印 σ 参数、`config.yaml` 不含该字段、ktdump 也只有
+`old_logp/prox_logp/cur_logp/version` 四列**——三条常规取证路径全都看不出来。
+这是 E3 目前最危险的一种静默失败。
+
+**已排除(用产物反推控制流)**:trial 目录名 `ours-fp8_e4m3-h200` 是
+`trial_name=${METHOD}-${KVDTYPE}${TAGSFX}` 拼出来的,该目录存在即证明
+`case $METHOD in ours)` 命中;`export` 与 `OVR=` 在**同一分支同一行段**内,
+故 export 必然已执行。**比去日志里找打印更可靠——因为它根本不打印。**
+
+**逐字核对**:`dose.sbatch:23-24` 与 `rl/cells.sbatch:43-44`、`rl/fp8.sbatch:24-25` 三处一致:
+```
+OVR="actor.rejection_sampling.action=clamp actor.rejection_sampling.lower=1e-6 actor.rejection_sampling.upper=1e6"
+export KT_SIGMA_TIS=1 KT_SIGMA_C1=1.0 KT_SIGMA_B=${LAMP:-2.3} KT_SIGMA_A=1e9 KT_SIGMA_FLOOR=5e-3
+```
+→ **E3 的 CIS 与主表的 CIS 是同一算子**,两边结果可以互相引用。
+
+**`LAMP` 未传,故 b=2.3**:`LAMP` 仅在 `submit_batch.sh:34-39` 中对
+`dsv2`(15.0)/ `q30b`(0.95)赋值;E3 是 **cell A**(Qwen1.5-MoE),不在该规则内,
+`dose.sbatch` 在任何一次提交里都没有接收过 `LAMP`。三个 `ours` 臂一律取默认 **2.3**。
+
+**实际生效的 CIS 形式**(`areal/utils/functional/functional.py:423-439`):
+`sig = max(c1*(1-p), floor)`,`log M = clip(log k, -a*sig, +b*sig)`,`p = exp(prox_logp)`。
+代入 `c1=1.0, b=2.3, a=1e9, floor=5e-3`:
+- 上界 `= 2.3*(1-p)`;下界 `= -1e9*(1-p)` → **实际是单边裁剪**,只截上尾。
+- `floor=5e-3`:即使 `p→1`,带宽也不低于 `2.3*5e-3 = 0.0115`。
+
+**一个容易读错的地方,必须讲清楚**:源码注释说 `c1=0.195` 是 Qwen1.5-MoE **实测**的
+scale law(`sigma(log k | p) = c1*(1-p)`)。部署配置把 `c1` 改成 **1.0**,
+这意味着 `sig` **不再是实测 σ**,而就是 `(1-p)` 本身。
+所以部署的 `b=2.3` **不能读成"2.3 个 σ"**——换算成实测 σ 应是 `2.3/0.195 ≈ 11.8 σ`,
+与源码默认的 `b=12`(即 12 σ)**几乎一致**。两套参数化只是 `c1*b` 的不同拆法。
+**真正的配置差异不在带宽,而在 `a`**:源码默认 `a=20`(即 ±3.9 的双边裁剪),
+部署用 `a=1e9`(单边)。**单边 vs 双边才是 CIS 的实质选择,带宽两者等价。**
