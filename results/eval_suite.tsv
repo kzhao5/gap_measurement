@@ -398,3 +398,9 @@ suite_q30b_seqtisvllm_s1	math500	0.7520	500
 suite_q30b_seqtisvllm_s1	svamp	0.9400	300
 suite_q30b_seqtisvllm_s1	minerva	0.3346	272
 suite_q30b_seqtisvllm_s1	olympiad	0.4807	674
+dose5_fp8_e4m3_nocorr	gsm8k	0.6823	1319
+dose5_fp8_e4m3_nocorr	gsm8k_em	0.6550	1319
+dose5_fp8_e4m3_nocorr	math500	0.2580	500
+dose5_fp8_e4m3_nocorr	svamp	0.6500	300
+dose5_fp8_e4m3_nocorr	minerva	0.0662	272
+dose5_fp8_e4m3_nocorr	olympiad	0.0504	674
