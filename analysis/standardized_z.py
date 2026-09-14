@@ -15,7 +15,7 @@ import numpy as np
 import pandas as pd
 
 ARCH = sys.argv[1] if len(sys.argv) > 1 else "moe"
-LOCAL = "/home/kzhao2/gap_measurement/results"
+LOCAL = os.path.expanduser("~/gap_measurement/results")
 FIGS = os.path.join(LOCAL, "figs")
 BLUE, INK, GRAY, RED = "#2a78d6", "#0b0b0b", "#8a8a8a", "#d03b3b"
 plt.rcParams.update({

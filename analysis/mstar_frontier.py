@@ -1,3 +1,4 @@
+import os
 #!/usr/bin/env python
 """Empirical bias-variance frontier for M* candidates (boxed objective):
 
@@ -18,7 +19,7 @@ import sys
 import numpy as np
 import pandas as pd
 
-LOCAL = "/home/kzhao2/gap_measurement/results"
+LOCAL = os.path.expanduser("~/gap_measurement/results")
 N_EFF = 1024  # batch size in the variance term; ordering shifts only via 1/n
 
 arch = sys.argv[1]

@@ -1,8 +1,9 @@
+import os
 """Appendix: acceptance/intervention regions of four operators in the (pi_infer, pi_train)
 plane, with the champion run's tokens overlaid (kept vs truncated)."""
 import glob, numpy as np, pandas as pd, pyarrow.parquet as pq
 import matplotlib; matplotlib.use("Agg"); import matplotlib.pyplot as plt
-R="/home/kzhao2/nobackup/autodelete/areal_rl/ktdump/lgrid_0"; PF="/home/kzhao2/icepop-paper/figures"; OUT="/home/kzhao2/gap_measurement/results/paper"
+R=os.path.expanduser("~/nobackup/autodelete/areal_rl/ktdump/lgrid_0"); PF=os.path.expanduser("~/icepop-paper/figures"); OUT=os.path.expanduser("~/gap_measurement/results/paper")
 plt.rcParams.update({"font.size": 8.5, "axes.labelsize": 9, "legend.fontsize": 7, "xtick.labelsize": 7.5, "ytick.labelsize": 7.5, "figure.dpi": 200,
                      "axes.grid": False, "axes.spines.top": False, "axes.spines.right": False, "pdf.fonttype": 42, "font.family": "DejaVu Sans"})
 LEG=dict(frameon=True, fancybox=False, edgecolor="#bbbbbb", framealpha=1.0, handlelength=1.3, handletextpad=0.35, columnspacing=0.8, borderpad=0.3)

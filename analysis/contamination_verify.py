@@ -31,7 +31,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 from common import CODE_ROOT, DATA_ROOT
 from w1prime_delta import load as load_campaign, traj_slices
 
-RLROOT = "/home/kzhao2/nobackup/autodelete/areal_rl"
+RLROOT = os.path.expanduser("~/nobackup/autodelete/areal_rl")
 PAIRED = os.path.join(DATA_ROOT, "paired")
 OUT = os.path.join(CODE_ROOT, "results", "contamination")
 FIG = os.path.join(CODE_ROOT, "results", "figs", "contamination")

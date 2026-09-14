@@ -1,3 +1,4 @@
+import os
 """Fig 5 / Experiment B: band trigger dynamics on the champion arm (ktdump/lgrid_0).
 
 (a) trigger rate vs training step (version as step proxy) with train-time-scale
@@ -11,8 +12,8 @@ recipe_sigmatis-based numbers).
 import glob, json, os
 import numpy as np, pandas as pd, pyarrow.parquet as pq
 import matplotlib; matplotlib.use("Agg"); import matplotlib.pyplot as plt
-R = "/home/kzhao2/nobackup/autodelete/areal_rl/ktdump"
-ROOT = "/home/kzhao2/gap_measurement"; OUT = f"{ROOT}/results/paper"; FIG = f"{ROOT}/results/figs/paper"
+R = os.path.expanduser("~/nobackup/autodelete/areal_rl/ktdump")
+ROOT = os.path.expanduser("~/gap_measurement"); OUT = f"{ROOT}/results/paper"; FIG = f"{ROOT}/results/figs/paper"
 os.makedirs(OUT, exist_ok=True); os.makedirs(FIG, exist_ok=True)
 LAM, EPS0, C_STATIC = 2.3, 5e-3, 0.156
 BLUE, ORANGE, GRAY = "#1f77b4", "#ff7f0e", "#9a9a9a"

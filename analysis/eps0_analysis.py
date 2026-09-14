@@ -1,3 +1,4 @@
+import os
 """What does eps0 = 0.1 (vs 5e-3) change in log M = min(log k, 2.3*max(1-p, eps0))?
 
 Three data sources, no new GPU work:
@@ -36,7 +37,7 @@ del df, lk, u
 
 # ---------------- ktdump real RL ----------------
 rows = []
-for f in sorted(glob.glob("/home/kzhao2/nobackup/autodelete/areal_rl/ktdump/recipe_sigmatis/*.parquet")):
+for f in sorted(glob.glob(os.path.expanduser("~/nobackup/autodelete/areal_rl/ktdump/recipe_sigmatis/*.parquet"))):
     t = pq.read_table(f).to_pandas()
     t["lag"] = t["version"].max() - t["version"]
     rows.append(t)

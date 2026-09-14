@@ -50,5 +50,5 @@ python examples/math/gsm8k_rl.py \
     $OVR
 
 CK=$RLROOT/experiments/checkpoints/$USER/kt-fp8/${METHOD}${TAG}-fp8/default
-E=$(ls "$CK" 2>/dev/null | tail -1)
+E=$(ls "$CK" 2>/dev/null | grep "^epoch" | tail -1)
 [ -n "$E" ] && sbatch --export=ALL,EVAL_PATH="$CK/$E",EVAL_TAG="fp8_${METHOD}${TAG}" $HOME/gap_measurement/rl/eval_tp.sbatch
