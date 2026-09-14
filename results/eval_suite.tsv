@@ -422,3 +422,9 @@ dose5_fp4_e2m1_nocorr	math500	0.0760	500
 dose5_fp4_e2m1_nocorr	svamp	0.3600	300
 dose5_fp4_e2m1_nocorr	minerva	0.0221	272
 dose5_fp4_e2m1_nocorr	olympiad	0.0208	674
+dose5_bf16_ours	gsm8k	0.7180	1319
+dose5_bf16_ours	gsm8k_em	0.6952	1319
+dose5_bf16_ours	math500	0.2660	500
+dose5_bf16_ours	svamp	0.7100	300
+dose5_bf16_ours	minerva	0.0441	272
+dose5_bf16_ours	olympiad	0.0504	674
