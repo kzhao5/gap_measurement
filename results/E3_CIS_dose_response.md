@@ -3,7 +3,7 @@
 > 执行:tianruny 账号(接力自 kzhao2)｜完成日期:2026-09-14
 > 模型:cell A = `Qwen/Qwen1.5-MoE-A2.7B-Chat`｜规模:9 个训练臂 × 2 套评测协议 = 18 次评测
 > 本文档所有数字由脚本从 `results/eval_suite.tsv` 与评测日志直接计算生成,未经手工转录。
-> 诊断与决策过程见 `results/NOTES_tianruny.md`(R21–R68);作业清单见 `results/OWNERSHIP_tianruny.md`。
+> 诊断与决策过程见 `results/NOTES_tianruny.md`(R21–R69);作业清单见 `results/OWNERSHIP_tianruny.md`。
 
 ---
 
@@ -302,7 +302,7 @@ CIS 68.95:与第一名差 -0.43(z=-0.36),
 | checkpoint | `~/nobackup/autodelete/areal_rl/experiments/checkpoints/tianruny/kt-dose/` |
 | 提交脚本(未改动仓库代码) | `~/nobackup/autodelete/env_local/dose.sbatch` |
 | 汇总脚本 | `~/nobackup/autodelete/env_local/{dose_curve,dose5_curve,e3_answer}.sh` |
-| 诊断全过程(R21–R68) | `results/NOTES_tianruny.md` |
+| 诊断全过程(R21–R69) | `results/NOTES_tianruny.md` |
 | 作业清单与重提史 | `results/OWNERSHIP_tianruny.md` |
 
 **可复现性**:所有判读规则在数据到达前写入 NOTES 并提交(R43/R44/R49/R54/R56/R60/R62/R66),
