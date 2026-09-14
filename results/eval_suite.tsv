@@ -446,3 +446,9 @@ suite_tis_s3	math500	0.2460	500
 suite_tis_s3	minerva	0.0625	272
 suite_tis_s3	olympiad	0.0460	674
 suite_tis_s3	svamp	0.6967	300
+dose5_fp4_e2m1_ours	gsm8k	0.5914	1319
+dose5_fp4_e2m1_ours	gsm8k_em	0.5853	1319
+dose5_fp4_e2m1_ours	math500	0.1980	500
+dose5_fp4_e2m1_ours	svamp	0.6167	300
+dose5_fp4_e2m1_ours	minerva	0.0368	272
+dose5_fp4_e2m1_ours	olympiad	0.0490	674
