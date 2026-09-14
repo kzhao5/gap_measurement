@@ -873,3 +873,28 @@ ppo update: memory allocated 53.40 GB, reserved 74.55 GB, device used/total 78.6
 
 **已提交**:fp4_e2m1 的 fullis 与 ours(`TAGSFX=-lowmem`,`mem_fraction_static=0.55`)。
 至此 E3 的两个新档位各三臂全部在途。
+
+### R27. `Invalid reward type` 是**被捕获的单轨迹异常**,不是致命失败(第 4 次监控误报)
+监控在 `13671276`(fullis / fp8_e4m3)第 80 步报"致命错误",实际核查:
+
+| 证据 | 结果 |
+|---|---|
+| job 状态 | **RUNNING** 6:14:37,告警后步数从 80 → **81/87**,仍在推进 |
+| 异常归属 | `[RemoteInfEngine Rank 2] ERROR: Workflow execution failed: Invalid reward type: <class 'int'>`,落在 `areal/infra/workflow_executor.py:1147` —— **单个 rollout worker 的一条轨迹**,被该 worker 捕获 |
+| 出现次数 | **6 次**,且**只在这一个 arm**(nocorr / ours / fp4-nocorr 均为 0 次) |
+| 显存 | 79.09/139.80 GB(H200 140GB),**宽裕**,与 fp4 那次 77.34/79.18 的紧张状况无关 |
+
+**结论**:这是 rollout 侧偶发的奖励类型异常(某条轨迹的 reward 返回了 `int` 而非期望类型),
+被 workflow executor 捕获后**丢弃该条轨迹并继续**,不影响训练推进,也不影响已完成步的有效性。
+6/87 步中出现、单 arm 独有,属偶发。
+
+**监控判据的第 4 次修正**:先前只要匹配到 `Traceback` 就报致命错误,导致
+c10d 的 IPv6 警告(R12 前)、`NameResolve INFO: No such path`、同名目录里上一次的残留、
+以及本次被捕获的 workflow 异常,**四次误报**。每次误报都会消耗该 job 唯一的告警名额、
+**掩盖之后的真错误**。现已改为三重约束:
+1. 排除含 ` INFO: ` / ` WARNING: ` 的行;
+2. 排除 `Workflow execution failed`(worker 已捕获);
+3. **只在 job 不再 RUNNING 时才判定致命** —— 仍在推进的 job 不可能是致命失败。
+
+**可复用的判据**:判断异常是否致命,**不能只看日志里有没有 Traceback,要看 job 是否仍在推进**。
+异常被捕获与否,比异常本身的措辞更有决定性。
