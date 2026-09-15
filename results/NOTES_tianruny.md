@@ -3143,3 +3143,78 @@ dense 两者一致(log W 确为对数正态),**moe 两者差 4 倍** —— log 
   我的 Hill(上 0.1%)= 0.2131,估计量与阈值都不同,**三者不可直接比较**。
 - **按档位的 μ 仍被阻塞**:`src/gen_vllm.py` 无量化参数(TODO H 节)。
   但依第 1 节,按档位该看的量应从 μ 改为 `E[e^{2ε}]−1` / ESS(W) / 负尾分位数。
+
+### R77. 我把"没进 venv"第三次读成了"东西不存在" —— 并附按档位诊断的可行性结论
+
+本轮我向用户宣布过一条"决定性发现":
+> FlashInfer 是唯一支持量化 KV 的后端。它导入不了,整件事在任何硬件上都跑不动
+> —— 真正的门是一个 Python 导入失败,不是算力。
+
+**这条是错的。** 对照实验:
+
+```
+/home/tianruny/miniconda3/bin/python -c "import flashinfer"  → ModuleNotFoundError
+.venv/bin/python                     -c "import flashinfer"  → OK 版本 0.6.14
+.venv/bin/python                     -c "import vllm"        → OK vllm 0.26.0
+```
+
+报错的那个命令块里**没有 `source .venv/bin/activate`**,跑的是 base conda 的 python。
+包是好的,环境是错的。
+
+**这是同一错误在本轮的第三次**:
+
+| 次序 | 现象 | 我的读法 |
+|---|---|---|
+| 1 | base conda 跑 `mu_moments.py` → `No module named 'pyarrow'` | 正确诊断为 venv 问题,并记下「仓库用 `.venv`,34 处 sbatch 都是 `source .venv/bin/activate`」 |
+| 2 | 同一命令块里 `import pandas` 失败 | 同上,一并归因 |
+| 3 | **`import flashinfer` 失败** | **读成「包坏了 / 功能不可用」,并当作实验的决定性阻塞报了出去** |
+
+第 1、2 次我已经诊断对了,**修法就写在我自己上一条消息里**,一小时后仍然复发。
+差别在于:1、2 两次我是在查"环境有没有依赖",心里带着环境这个变量;
+第 3 次我在查"某个功能是否可用",注意力全在功能上,
+**于是同一个信号被归到了另一个原因**。
+
+**判据(承 R75)**:R75 定的规矩是「空输出必须配正对照」。本次是它的变体 ——
+**报错也需要正对照**。`ModuleNotFoundError` 只说明"这个解释器找不到它",
+不说明"它不存在"。任何把导入失败当作功能缺失的结论,
+必须先用一个**已知在该环境里可用的模块**(这里 `vllm` 就是现成的)验证解释器选对了。
+成本是同一条命令里多一个 `import`。
+
+#### 顺带确认的抢占关系(这条是真的,且改变了可选路径)
+
+`sbatch --test-only` 对 cs2 / m13h 返回:
+```
+Preempts: 13688028, 13690565, 13690569   (cs2)
+Preempts: 13690560                        (m13h)
+```
+逐个查证:**四个全是 `fslcollab4` 的运行中作业**,跑在 `gstandby` 上。
+以 `qos=cs` / `qos=gpu` 提交会**抢占另一个用户正在跑的作业**,故这两条路放弃。
+
+**附带更正 R74 的一处表述**:R74 说我的 `13689486/13689487` 落在 `gstandby`,
+"是抢占者,不是被抢占者"。这在 `gstandby` vs `standby` 这一层成立,
+但在 `cs`/`gpu` vs `gstandby` 这一层**反过来** —— 我那两个臂正处在
+fslcollab4 此刻所处的同一位置上,**可被任何 `qos=cs` 的提交抢占**。
+抢占关系是偏序,不是"是/否"。
+
+#### 按档位诊断的可行性:硬件与软件都通,唯一干净的入口是 cs3
+
+| 约束 | 结论 |
+|---|---|
+| `fp8_e4m3` / `fp8_e5m2` | 需 **SM89+**(`cuda.py:561 supports_fp8() = has_device_capability(89)`;`triton_attn.py:521` 同门,报错文案 "native FP8 (fp8e4nv) requires SM89+")。**A100/dw 出局**,R17 结论成立但真因是算力等级而非 CUDA-graph 捕获 |
+| `nvfp4` | 需 **SM100**(`flashinfer.py:718` "requires the SM100 trtllm-gen")→ 全集群只有 **cs-3-1(B200)** |
+| 后端 | 只有 **FlashInfer** 支持量化 KV(FlashAttention 仅 auto/float16/bfloat16;Triton 在 SM89 以下直接拒绝)。已确认 venv 内可用,0.6.14 |
+| 空闲 | cs-3-1 = `gpu:b200:8`,已用 6、**空 2**;`--test-only` 显示即刻可起,**且不抢占任何人** |
+| 并行度 | `measure.sbatch` 的 4 卡只是「8 分片分 2 轮」,非硬需求;改 2 卡 4 轮即可,时间约翻倍(gen 约 1.6h),远在 8h 上限内 |
+
+**一条必须随结果上报的科学限制**:E3 的训练臂跑在 **sglang**
+(`kv_cache_dtype` = `fp8_e4m3` / `fp4_e2m1`),而本诊断走 **vLLM**
+(`fp8_e4m3` / `nvfp4`)。**不同引擎、不同 kernel,fp4 两边连格式名都不同。**
+因此它测的是「同档量化会引入多大噪声」,
+**不等于「那几次训练实际经历的噪声」**。这一点不能在汇报时省略。
+
+#### 输出隔离(防止重演覆盖风险)
+
+`gen_vllm.py:383` 的 `outdir = DATA_ROOT/gen/<arch>` **路径里不含档位**,
+按档位重跑会直接覆盖今天刚产出的 bf16 基线 parquet。
+副本改用 `KT_DATA_ROOT` 环境变量整体重定向 `DATA_ROOT`,
+gen 与 recompute 一起隔离,基线目录只读不写。
