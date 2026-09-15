@@ -3704,3 +3704,57 @@ R76 测得 moe 的 `E[e^{2ε}]−1` 是 dense 的 **14.7 倍**,且 moe 重尾在
 我把它当成"随手写的说明"而放松了标准。
 **判据补充:提交信息里的数字与正文同等对待,一律由同一处计算产生。**
 不改写已推送的历史,以此条为准。
+
+
+### R85. sglang **能**对已采样序列打分 —— e5m2/fp4 的 ε 矩并非「拿不到」,而是「未建」
+
+R80/R84 与报告 §11.4 里我写过一句:**「能在 e5m2 上训练,却测不到 e5m2 的 ε 矩」**。
+**这句话说过头了。** 准确的说法是:**在 vLLM 诊断路径上测不到**。
+查了 sglang 的接口后,另一条路是通的。
+
+#### 证据(AReaL venv 的 sglang,非 gap venv)
+
+```
+input_token_logprobs        118 处   (另有 _val / _idx 变体)
+output_token_logprobs        47 处
+io_struct.py:155-157  # If return logprobs, the start location in the prompt for
+                      # returning logprobs. By default -1, which means it will
+                      # only return logprobs for output tokens.
+io_struct.py:854      self.sampling_params[max_new_tokens] = 0
+```
+
+三件事合起来说明:
+1. **能返回 input 端的逐 token logprob**(`input_token_logprobs`),不只是生成端;
+2. `logprob_start_len` 可指定从提示词的哪个位置开始返回 —— 默认 −1 才只给输出端;
+3. **`max_new_tokens=0` 受支持**,即纯 prefill 打分,不生成。
+
+⇒ **把已采样的完整序列作为 input 送进去、`return_logprob=True`、
+`logprob_start_len` 设到提示词长度、`max_new_tokens=0`,即可拿到
+该 token 序列在给定 `kv_cache_dtype` 下的 `logp_infer`。**
+
+#### 为什么这比 vLLM 那条路更好(若要做)
+
+- **档位齐全**:sglang 支持 `fp8_e5m2` 与 `fp4_e2m1` —— 正是**训练臂实际用的那两个**。
+  vLLM 侧 e5m2 坏掉、`nvfp4` 又非同一格式(R80)。
+- **消除引擎不对称**:诊断与训练同引擎、同格式,不必再带「测的不是训练经历的噪声」这条限制。
+- **完美配对**:直接对**既有轨迹**打分(`trajs_*.parquet` 含 `prompt_token_ids` / `gen_token_ids`),
+  各档用同一批 token,跨档比较无采样噪声。比重新生成更干净。
+- **训练侧无需改动**:`recompute_train.py` 读 `trajs_*.parquet` 产出 `logp_train`,可直接复用。
+
+#### 代价与未知(不得低估)
+
+- **不同 venv**:sglang 在 `~/AReaL/.venv`(py3.11),`gen_vllm.py` 在 gap venv(py3.12)。
+  需要一个新的打分脚本,不能简单复制现有副本。
+- **没有路由捕获钩子**:`gen_vllm.py` 的 `install_capture` 是 vLLM 专用。
+  但 **ε 矩不需要它** —— 只需 `logp_infer`。路由分析要另说。
+- **未验证**:以上全部来自读接口,**没有跑过一次**。
+  按本轮反复的教训(R75/R77/R79/R82),**接口存在 ≠ 组合可用**,
+  必须先做一次 `--smoke` 级别的冒烟才能算数。
+
+#### 结论与定位
+
+**这是目前价值最高的待办**:它同时解决 R84 的「两点拟两参数、不可证伪」,
+与 §11.4 的引擎不对称。但它是**一次新建**,不是参数改动,
+**需要用户拍板是否投入**,故只登记不动手。
+
+同时更正措辞:凡写「测不到 e5m2 的 ε 矩」处,均应限定为「**在 vLLM 路径上**」。
