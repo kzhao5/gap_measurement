@@ -3372,3 +3372,84 @@ os.getenv("FLASHINFER_WORKSPACE_BASE", pathlib.Path.home().as_posix())
 > 验证模式抓得住它。本次的已知样例唾手可得 —— `FLASHINFER_CUBIN_DIR`
 > 是两参数形式吗?不是,它恰好是单参数,所以模式看起来"работает"。
 > **正对照必须选在模式的边界上,而不是选一个最容易通过的。**
+
+### R80. `fp8_e5m2` 在 vLLM 0.26 上无法用作 KV dtype —— 两个后端一个拒收、一个收下后崩
+
+H200 冒烟 `13691206` 三档结果:`auto` OK、`fp8_e4m3` OK、**`fp8_e5m2` FAIL**(rc=1,417 秒,
+**是报错退出而非超时**)。根因已定位到具体异常。
+
+#### 1. 三档选了不同的 attention 后端 —— 这才是差异所在
+
+| 档位 | attention 后端 | MoE 后端 | 结果 |
+|---|---|---|---|
+| `auto`(bf16) | **FLASH_ATTN** | TritonExperts | OK(18:40:45→18:46:58) |
+| `fp8_e4m3` | **FLASH_ATTN** | TritonExperts | OK(18:48:59→18:49:42,**43 秒**) |
+| `fp8_e5m2` | **FLASHINFER** | TritonExperts | **FAIL** |
+
+`kernel_warmup.py:135-147` 只在**所有** attention group 都是 FlashInfer 时才跑
+FlashInfer attention warmup —— 恰好只有 e5m2 满足。崩溃就发生在那次
+`_dummy_run(force_attention=True, create_mixed_batch=True)` 里。
+
+#### 2. 确切异常:vLLM 用 KV dtype 去 plan,但 query 恒为 e4m3
+
+```
+File ".../vllm/v1/attention/backends/flashinfer.py", line 1925, in forward
+    prefill_wrapper.run(
+File ".../flashinfer/prefill.py", line 2344, in run
+    _check_cached_qkv_data_type(
+ValueError: The dtype of q torch.float8_e4m3fn does not match the q_data_type
+            torch.float8_e5m2 specified in plan function.
+```
+
+vLLM 把 `q_data_type` 取自 `kv_cache_dtype`(= e5m2),
+但实际 query 张量**无论 KV 是什么都量化成 `float8_e4m3fn`**。
+二者在 FlashInfer 的 `_check_cached_qkv_data_type` 处对不上。
+**这是 vLLM 0.26 内部的不一致,不是我的配置,也与硬件无关**
+—— 它发生在 warmup 的 dummy run 里,真实请求同样会触发。
+
+#### 3. 两个后端都是死路
+
+| 后端 | 对 `fp8_e5m2` |
+|---|---|
+| FLASH_ATTN | **拒收**。`flash_attn.py:178` 的 `supports_kv_cache_dtype()` 只对 `fp8`/`fp8_e4m3` 返回真(且需 FA3 + sm90),其余落到 `["auto","float16","bfloat16"]` |
+| FLASHINFER | **收下后崩**(上节异常) |
+
+**订正我先前的一处误读**:我曾引 `flash_attn.py:73` 的静态表
+`supported_kv_cache_dtypes = ["auto","float16","bfloat16"]`,
+据此担心"FlashAttention 会拒绝 fp8,e4m3 也跑不了"。
+但 e4m3 实测就跑在 FLASH_ATTN 上 —— 因为**第 178 行的
+`supports_kv_cache_dtype()` 方法覆盖了那张静态表**,FA3 在 sm90 上支持 e4m3。
+**静态属性不等于生效判据**,读到前者就下结论,又是"只看了一半"。
+
+#### 4. 范围再缩:阶梯从三级降为两级
+
+| | 单位舍入 | 状态 |
+|---|---|---|
+| bf16 | 2⁻⁸ | ✓ H200 可测 |
+| **fp8_e4m3** | **2⁻⁴** | **✓ H200 可测** |
+| ~~fp8_e5m2~~ | ~~2⁻³~~ | ✗ vLLM 0.26 不可用(本条) |
+| ~~fp4/nvfp4~~ | ~~2⁻²~~ | ✗ 需 SM100,且 B200 上 FlashInfer MoE JIT 停滞(R78) |
+
+**剩下 bf16 → e4m3 两点,舍入相差 16 倍**,在**同一硬件、同一批轨迹**上测(R79),
+仍构成一个干净的剂量对。两点只能给斜率、给不出曲率。
+
+#### 5. 必须上报的不对称
+
+E3 的**训练**臂跑在 **sglang** 上,`fp8_e5m2` 在那边是可用的
+(三个 e5m2 训练臂已在队:`13689470/13689486/13689487`)。
+而**诊断**走 vLLM,在那边 e5m2 不可用。
+
+**于是出现一个尴尬但必须如实说的局面:
+我们能在 e5m2 上训练,却测不到 e5m2 的 ε 矩。**
+同理 fp4:训练用 sglang 的 `fp4_e2m1`,诊断侧的 `nvfp4` 既需 SM100 又非同一格式。
+
+**后果**:§10.3 那条"反向预测"的限制**不能靠本次诊断完全解除**。
+能解除的部分是:bf16→e4m3 这一段的噪声确实随量化单调变化(待数据);
+不能解除的是:**fp4 档的噪声是否真的远大于 e4m3,仍无直接测量**。
+
+#### 6. 对在跑作业的处置:不干预
+
+`13691373` 的第三档会以同样的 `ValueError` **快速失败**(约 7 分钟,
+因为是立即抛异常而非超时,且我的循环在首个分片失败时即 `break`),
+不会浪费 40 分钟时限。`auto` 与 `fp8_e4m3` 两档不受影响。
+**故不取消、不改脚本** —— 让它把能拿的两档拿完。
