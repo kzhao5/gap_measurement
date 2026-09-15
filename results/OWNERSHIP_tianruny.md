@@ -646,3 +646,31 @@ cell A 三种子的等权均值 SD 为 nocorr 0.22、ours 0.48、**fullis 2.23**
 **注意目录内残留 `weight_update_v21`**(完整 27G 模型,权重同步中间产物)。
 它按字母序排在 `epoch2*` **之后**,裸 `ls | tail -1` 会选错;
 本仓库两条选取路径均过滤 `^epoch`,不受影响。**未删除**,理由见 R93。
+
+
+#### 重投后的配置与硬件核验(R22:不信提交意图,读解析后的 config.yaml)
+
+R93 断言「参数与其余 e5m2 臂一致、硬件一致」。现已**逐项核实**,非仅声称:
+
+| 配置项 | `nocorr`(重投 13694731) | `fullis`(13689470) |
+|---|---|---|
+| `kv_cache_dtype` | fp8_e5m2 | fp8_e5m2 |
+| `attention_backend` | triton | triton |
+| `mem_fraction_static` | 0.8 | 0.8 |
+| `max_tokens_per_mb` | 4096 | 4096 |
+| `use_decoupled_loss` | **false** | **true** |
+
+最后一项**本就应当不同** —— 它正是算子区别:`dose.sbatch` 的
+`nocorr) OVR="actor.use_decoupled_loss=false"`。其余四项完全一致。
+
+**硬件(档内比较的前提)**:
+
+| 臂 | JobID | 节点 | 硬件 |
+|---|---|---|---|
+| fullis | 13689470 | cs-2-1 | **H100** |
+| nocorr | 13694731 | cs-2-1 | **H100** |
+| ours | 13689487 | cs-2-2 | **H100** |
+
+三臂同为 H100。这正是当初否决 cs-3-1(B200)的理由所在
+——`nocorr vs fullis vs ours` 是该档存在的唯一目的,档内混硬件会直接污染它。
+**现在这条前提已被证实成立,而非只是被主张。**
