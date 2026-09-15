@@ -452,3 +452,9 @@ dose5_fp4_e2m1_ours	math500	0.1980	500
 dose5_fp4_e2m1_ours	svamp	0.6167	300
 dose5_fp4_e2m1_ours	minerva	0.0368	272
 dose5_fp4_e2m1_ours	olympiad	0.0490	674
+dose5_fp8_e5m2_fullis	gsm8k	0.6050	1319
+dose5_fp8_e5m2_fullis	gsm8k_em	0.6035	1319
+dose5_fp8_e5m2_fullis	math500	0.2100	500
+dose5_fp8_e5m2_fullis	svamp	0.6167	300
+dose5_fp8_e5m2_fullis	minerva	0.0478	272
+dose5_fp8_e5m2_fullis	olympiad	0.0445	674
