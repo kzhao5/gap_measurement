@@ -284,3 +284,30 @@ llm_kwargs(229-240):        dtype="bfloat16" 写死,无 kv_cache_dtype / quantiz
 (fp4 档 CIS 29.84 落后 exact-ratio 32.32,z=−2.26,见 `results/E3_CIS_dose_response.md` §10.3)。
 **由于每档的 μ 没测,目前无法确认该反向证据针对的是「μ」还是仅仅「量化档位」** ——
 这个参数正是把结论从「带条件」变成「干净」的关键。
+
+---
+
+## 【2026-09-14 补】H 节(给 `gen_vllm.py` 加量化参数)**已不再阻塞 tianruny**
+
+我用 `env_local` 下的参数化副本绕开了:`gen_vllm_q.py` 加 `--kv-cache-dtype`,
+并用 `KT_DATA_ROOT` 重定向 `DATA_ROOT`(避免覆盖基线 parquet),**仓库 `src/` 零改动**。
+
+**但仓库侧的改动仍然值得做**,理由是可复现性:副本不在版本控制里,别人拿不到。
+若你改 `gen_vllm.py`,建议一并加 `--kv-cache-dtype`(透传到 `llm_kwargs`)
+与输出目录的档位后缀。
+
+**另有两条实测结论,会影响你怎么设计这个参数**(详见 NOTES R78 / R80):
+
+1. **`fp8_e5m2` 在 vLLM 0.26 上不可用。** FlashAttention 的
+   `supports_kv_cache_dtype()` 只认 `fp8`/`fp8_e4m3`(且需 FA3 + sm90);
+   FlashInfer 收下后在 warmup 崩:
+   `ValueError: The dtype of q torch.float8_e4m3fn does not match the q_data_type
+   torch.float8_e5m2 specified in plan function`
+   —— vLLM 用 KV dtype 去 plan,但 query 恒量化为 e4m3。
+2. **`nvfp4` 需 SM100(仅 cs-3-1/B200)**,而 B200 上 FlashInfer MoE 会为 SM100
+   做 JIT,静默烧 CPU 超 12 分钟未完;且 `nvfp4` 与 sglang 训练侧用的
+   `fp4_e2m1` **不是同一格式**,两边不可直接比。
+
+所以即便加了参数,**vLLM 侧实际可用的只有 `auto`/`bf16` 与 `fp8_e4m3`**。
+
+C 项(δ dump)仍在等用户拍板,与本条无关。
