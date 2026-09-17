@@ -413,3 +413,21 @@ Qwen1.5/DSV2 无 thinking 模式,不受影响(cell A 无恙)。
 - ✅ 09-07 16:xx:dsv2 tis s2 在 m13h/H200 首奖励 0.768、seq_len 271 —— Python.h/C_INCLUDE_PATH 修复在 H200 生效;dsv2 批量正式流动(tokenizer 修复口径 ≈0.77 复现)。
 - ⑭ 09-08:dsv2 tis s2 训练健康(0.77→0.88,3 ckpt)但评测 20%:AReaL 保存的 checkpoint tokenizer(tokenizer_class LlamaTokenizer)在 eval venv 下 decode 出 'Ġ' 且分词不同 → eval_suite 改为一律用 base 模型快照的 tokenizer(model 仍为 ckpt)。已清除该污染行并重评。dsv2 disk 模式实测 ~5.7 min/step(H200)→ 8h 不够,kpop/kpopfix s2 超时于 57/84 步;pending 全部改 12h,两者重提。
 - ✅ 09-08 tokenizer 修复后的 dsv2 首批有效结果:tis s2 73.46/23.80/67.33/7.35/5.19(GSM8K +2.8 vs base 70.66),seqtis s2 71.42/23.80/71.67/6.25/5.34;q30b seqmis s2 95.22(饱和)。DeepSeek cell 恢复'RL 有增益'的正常形态,旧的'全线低于 base'确认为分词 bug 所致。
+
+### 2026-09-17 存储清理 A 档 + 主表 GSPO 数据完整性问题
+**清理**:按用户批准的 A 档删除 46 个目录(41 个整 trial:DeepSeek SGLang 分词 bug 期 24 个、q30b thinking 期冒烟 1 个、
+中途取消/超时残缺 run 6 个、cell A 早期探索残缺 run 9 个、冒烟 1 个;另删 5 个 q30b 零 epoch trial 的 weight_update 子目录)。
+scratch 剩余 0.31T -> 3.58T,checkpoint 根目录 10.17T -> 6.8T。注意 VAST 存储删除后 df 滞后数分钟才反映回收。
+**排除 2 个**:清单 A5 的分类规则把 `kt-seeds/gspo-s1`、`kt-seeds/gspo-s3` 归为"cell A 残缺 run",但它们是主表 GSPO 行的
+seed 1 和 seed 3,不在用户批准的描述范围内,未删。
+**发现:主表 cell A 的 GSPO 行混用了不同训练长度的 checkpoint。**
+| seed | 训练 job | 实际步数 | 评测加载的 checkpoint | GSM8K |
+| s1 | 13241439 | 58/87 | epoch1 (step 57) | 52.54 |
+| s2 | 13241440 | 87/87 | epoch2 (step 86) | 0.00 |
+| s3 | 13241441 | 57/87 | epoch0 (step 28) | 40.11 |
+s1、s3 的 Slurm 状态都是 COMPLETED,实为静默失败:s3 日志末尾是 `update_weights` 500 Server Error(权重同步基础设施故障,
+不是算法本身),Python 退出后评测链照常触发,取到了最后一个存下来的 epoch 目录。s3 在第 57 步崩溃时 epoch1 未落盘,只剩 epoch0。
+**影响**:主表 GSPO 30.88±27.46 是 3/2/1 个 epoch 的混合;s2 完整跑满后塌到 0,s3 评的是塌缩前的第 28 步,真实 3-epoch 均值应远低于
+30.88,±27.46 也被训练长度差异放大。附录 Table 6 的 GSPO "Reward, epoch 3"(s1 0.340、s3 0.541)实为最后 28 步均值,s1/s3 并未跑到
+第 3 个 epoch,标签不准。**方向上加强"GSPO 在该 cell 上崩溃"的结论,但数值与其他行协议不一致。**
+**建议修复**:cell A 上把 GSPO s1、s3 重跑到满 87 步后重评;修复前主表该行不应与其他行直接比较。
